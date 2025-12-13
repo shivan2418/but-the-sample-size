@@ -1,3 +1,25 @@
+# Sample Size Explainer App
+
+## Project Purpose
+
+An educational web app that explains sample sizes in statistics through interactive examples. The core message: **sample size effectiveness does not depend on population size**. Once you reach a certain N (typically around 1,000-1,500), you get reliable estimates regardless of whether the population is 10,000 or 320 million.
+
+### The Problem We're Solving
+
+Many people see a national poll in the US with ~1,200 respondents and dismiss it as unreliable because "how can 1,200 people represent 320 million?" This is a common misconception. The math of sampling shows that precision depends primarily on sample size, not on the ratio of sample to population.
+
+### Key Statistical Concepts to Convey
+
+1. **Margin of Error** - Depends on sample size (n), not population size (N). Formula: MOE ≈ 1/√n
+2. **The "bowl of soup" analogy** - You don't need to taste the whole pot to know if it's salty, just a well-stirred spoonful
+3. **Confidence Intervals** - How certain we can be about our estimate
+4. **Law of Large Numbers** - Sample means converge to population mean as n increases
+5. **Finite Population Correction** - Only matters when sampling a large fraction (>5%) of the population
+
+---
+
+## MCP Tools
+
 You are able to use the Svelte MCP server, where you have access to comprehensive Svelte 5 and SvelteKit documentation. Here's how to use the available tools effectively:
 
 ## Available MCP Tools:

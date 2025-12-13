@@ -51,5 +51,10 @@
 		"vite": "^7.2.6",
 		"vitest": "^4.0.15",
 		"vitest-browser-svelte": "^2.0.1"
+	},
+	"dependencies": {
+		"@types/d3-scale": "^4.0.9",
+		"d3-scale": "^4.0.2",
+		"layerchart": "^1.0.12"
 	}
 }
