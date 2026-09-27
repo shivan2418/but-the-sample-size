@@ -1,0 +1,2 @@
+{"formatVersion":0,"collection":"residents","input":{"path":"residents.ndjson"},"output":"public/blockdb","clientOut":"src/blockdb","blockBytes":65536,"compression":"gzip",
+ "schema":{"sortField":"draw","pk":"draw","fields":{"draw":{"kind":"number"},"f":{"kind":"number"},"l":{"kind":"number"},"addr":{"kind":"number"},"race":{"kind":"string","values":["A","B","H","O","W"]},"setting":{"kind":"string","values":["R","U"]},"vote":{"kind":"string","values":["D","N","O","R"]}}}}
