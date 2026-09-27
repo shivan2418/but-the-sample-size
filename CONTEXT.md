@@ -13,7 +13,7 @@ Everyone in the group a poll is trying to describe: the simulated state on the s
 _Avoid_: Universe, dataset
 
 **Resident**:
-One synthetic person in the simulated state, with a name, address and political affiliation; never a real individual. The national rung has no residents.
+One synthetic person in the simulated state, with an invented name placed at a real address, plus race, urban or rural setting, and political affiliation; never a real individual. The national rung has no residents.
 _Avoid_: Voter, citizen, agent, record
 
 **Poll**:
