@@ -4,7 +4,7 @@ An interactive explainer, for readers without a stats background, of why a rando
 
 ## Commands
 
-Needs Node 22+ and pnpm (`corepack enable` picks up the pinned version).
+Needs pnpm (`corepack enable` picks up the pinned version) and any Node that can run it. The project runs on **Node 24**, which pnpm downloads on `pnpm install` and uses for every `pnpm` script (`devEngines.runtime` in `package.json`, locked in `pnpm-lock.yaml`). There's nothing to install per machine. A bare `node` outside pnpm is still the system one. `.node-version` says 24 for nvm, fnm, mise, editors and `actions/setup-node`.
 
 | Command | What it does |
 | --- | --- |
