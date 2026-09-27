@@ -4,6 +4,8 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 
 In Claude Code cloud sessions `gh` is not available: use the equivalent GitHub MCP tools (`mcp__github__*`, e.g. `issue_write`, `issue_read`, `list_issues`, `add_issue_comment`) against `shivan2418/but-the-sample-size`.
 
+The MCP tools have no issue-dependency (blocking) operations. For those, call the REST API with `curl` directly: the cloud session's proxy authenticates `api.github.com` requests. Send `-H "Content-Type: application/json"` on POSTs, e.g. `curl -sS -X POST -H "Content-Type: application/json" -H "Accept: application/vnd.github+json" https://api.github.com/repos/shivan2418/but-the-sample-size/issues/<child>/dependencies/blocked_by -d '{"issue_id":<blocker-db-id>}'`.
+
 ## Conventions
 
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.

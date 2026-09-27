@@ -1,0 +1,2 @@
+{"formatVersion":0,"collection":"addresses","input":{"path":"addresses.ndjson"},"output":"public/blockdb","clientOut":"src/blockdb","blockBytes":262144,"compression":"gzip",
+ "schema":{"sortField":"id","pk":"id","fields":{"id":{"kind":"number"},"key":{"kind":"string","indexed":true},"number":{"kind":"string"},"zip":{"kind":"string"},"tract":{"kind":"string"}}}}
