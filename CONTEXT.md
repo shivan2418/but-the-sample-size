@@ -13,7 +13,7 @@ Everyone in the group a poll is trying to describe: the simulated state on the s
 _Avoid_: Universe, dataset
 
 **Resident**:
-One person in the simulated state, with an invented name at a real address. Their party registration, race and age come from a real voter record at that address, or are synthesized for people not on the voter file; their vote choice is always modeled. A resident never stands for a named real individual. The national rung has no residents.
+One person in the simulated state, with an invented name at a real address. Their party registration, race, age and whether they voted come from a real voter record at that address, or are synthesized for people not on the voter file; their vote choice is always modeled. A resident never stands for a named real individual. The national rung has no residents.
 _Avoid_: Voter, citizen, agent, record
 
 **Party registration**:
