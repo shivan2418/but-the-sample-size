@@ -27,14 +27,14 @@ export default defineConfig({
 			{
 				extends: './vite.config.ts',
 				test: {
-					name: 'server',
+					name: 'unit',
 					environment: 'node',
 					include: ['src/**/*.{test,spec}.{js,ts}'],
 					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']
 				}
 			},
 			{
-				// Renders every story in headless Chromium: a story that throws fails `pnpm test`.
+				// Renders every story in headless Chromium: a story that throws fails `pnpm test:stories`.
 				// See https://storybook.js.org/docs/writing-tests/integrations/vitest-addon
 				extends: true,
 				plugins: [storybookTest({ configDir: path.join(import.meta.dirname, '.storybook') })],

@@ -11,18 +11,19 @@ Needs Node 24+, pnpm (`corepack enable` picks up the pinned version) and Docker.
 | `pnpm install` | Install dependencies |
 | `pnpm dev` | Dev server for the page at http://localhost:5173 |
 | `pnpm storybook` | Storybook at http://localhost:6006, stories open at phone width |
-| `pnpm check` | Every check: `check:types`, then `lint`, then `test` |
+| `pnpm check` | Every check: `check:types`, `lint`, `test`, then `test:stories` |
 | `pnpm check:types` | `svelte-check` (TypeScript and Svelte compiler warnings, including a11y) |
 | `pnpm lint` | Prettier check + ESLint |
 | `pnpm format` | Prettier, writing fixes |
-| `pnpm test` | Vitest once: unit tests (`src/**/*.spec.ts`) and every story rendered in headless Chromium |
-| `pnpm test:unit` | Vitest in watch mode |
+| `pnpm test` | Unit tests once (`src/**/*.spec.ts`, in Node, no browser) |
+| `pnpm test:watch` | Unit tests in watch mode |
+| `pnpm test:stories` | Every story rendered in headless Chromium, in Playwright's Docker image |
 | `pnpm build` | Prerender the page into `build/` |
 | `pnpm preview` | Serve `build/` |
 | `pnpm build-storybook` | Static Storybook into `storybook-static/` |
 | `pnpm pw:stop` | Stop the Playwright browser container the tests start |
 
-The story tests run Chromium in Playwright's official Docker image, never a host install. `pnpm test` and `pnpm test:unit` start it first (`scripts/playwright-server.sh`, image tag matching the installed `playwright`) and leave it running for the next run; `pnpm pw:stop` stops it. Claude Code cloud sessions have no Docker, so there `CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium` launches their preinstalled Chromium instead.
+The story tests run Chromium in Playwright's official Docker image, never a host install. `pnpm test:stories` starts it first (`scripts/playwright-server.sh`, image tag matching the installed `playwright`) and leaves it running for the next run; `pnpm pw:stop` stops it. Claude Code cloud sessions have no Docker, so there `CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium` launches their preinstalled Chromium instead.
 
 ## GitHub Pages
 
