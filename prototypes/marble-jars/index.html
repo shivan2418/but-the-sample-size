@@ -74,6 +74,9 @@ td.num,th.num{text-align:right}
 .steps{display:flex;gap:6px}
 .steps span{flex:1;height:4px;border-radius:2px;background:var(--line)}
 .steps span.on{background:var(--ink)}
+.stepbtn{flex:1;height:18px;padding:7px 0;border:0;border-radius:0;background:transparent;position:relative}
+.stepbtn::after{content:"";position:absolute;left:0;right:0;top:7px;height:4px;border-radius:2px;background:var(--line)}
+.stepbtn.on::after{background:var(--ink)}
 .stepnav{display:flex;justify-content:space-between;gap:8px}
 .lede{font:16px/1.55 var(--serif);margin:0}
 .switcher{position:fixed;left:50%;bottom:0;transform:translateX(-50%);margin-bottom:calc(12px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:4px;background:#0B0D10;color:#fff;border-radius:999px;padding:4px;box-shadow:0 6px 24px rgba(0,0,0,.35);font:500 13px var(--sans);z-index:10;max-width:calc(100% - 32px)}
@@ -623,7 +626,7 @@ const D = (() => {
     const b = st.busy, set = (id, dis) => { const e = $(id); if (e) e.disabled = dis; };
     set('dOne', b || st.tray.length >= 10); set('dBack1', b || !st.tray.length); set('d10', b); set('d100', b); set('d100x', b); set('dBig', b); set('dBothx', b); set('dS', b); set('dB', b); set('dX', b);
     set('dSort', b); if ($('dSort')) $('dSort').textContent = st.sortE > .5 ? 'Mix them up again' : 'Count the jar';
-    set('dPrev', b || st.step === 0); set('dNext', b || st.step === steps.length - 1);
+    set('dPrev', st.step === 0); set('dNext', st.step === steps.length - 1);
     const l = (j, n) => st.lanes.find(x => x.jar === j && x.n === n), pct = $('dPct'), m = $('dMoe'); let moeTxt = '';
     if (st.step === 0) pct.textContent = st.tray.length === 10 ? 'That’s a handful of 10. Put them back and move on to the next step.' : `One marble is 0.1% of the jar.`;
     if (st.step === 1) { pct.textContent = 'A handful of 10 is 1% of the jar.'; const v = (l('small', 10) || {}).vals || [];
@@ -636,17 +639,19 @@ const D = (() => {
       moeTxt = `Margin of error for ${fmt(st.n)}: small jar <b>±${fmtMoe(moe(nS, SMALL))}</b>${nS === SMALL ? ' (you counted every marble)' : ''}, big jar <b>±${fmtMoe(moe(st.n, BIG))}</b>.`; }
     m.innerHTML = moeTxt; m.hidden = !moeTxt;
   }
-  function go(to) {
-    if (st.busy) return; const from = st.step; st.step = to;
-    if (from === 0 && st.tray.length) { st.tray = []; st.out.fill(0); setTally(null); }
+  function go(to) { // any step, any time: skipping cancels what's running and starts the step clean
+    anims = []; st.busy = false; st.step = to;
+    st.tray = []; st.bar = null; st.trayA = 1; st.out.fill(0); st.wasOut.fill(0); st.refill = 1; st.tally = null;
+    for (const l of st.lanes) l.pending = {};
+    if (st.sortE > 0 && st.sortE < 1) st.sortE = Math.round(st.sortE);
     if (to >= 2) st.revealed = true;
     mount();
-    if (from === 2 && to === 3) zoom(1); if (from === 3 && to === 2) zoom(10);
+    const target = to >= 3 ? 1 : 10; if (st.s !== target) zoom(target);
   }
   return {
     name: 'Tactile to abstract',
     html: () => { const s = steps[st.step]; return `<div class="widget">
-      <div class="steps">${steps.map((_, i) => `<span class="${i <= st.step ? 'on' : ''}"></span>`).join('')}</div>
+      <div class="steps" role="tablist" aria-label="Steps">${steps.map((s, i) => `<button class="stepbtn${i <= st.step ? ' on' : ''}" data-step="${i}" role="tab" aria-selected="${i === st.step}" aria-label="Step ${i + 1}: ${s.t}"></button>`).join('')}</div>
       <div class="eyebrow">Step ${st.step + 1} of ${steps.length}</div>
       <h2>${s.t}</h2><p class="lede">${s.body}</p>
       <canvas id="dCanvas" role="img" aria-label="A jar of marbles, a tray for the handful, and a chart of every handful"></canvas>
@@ -666,6 +671,7 @@ const D = (() => {
       const nIn = $('dN'); if (nIn) nIn.addEventListener('change', e => { st.n = clampN(e.target.value); e.target.value = st.n; ui(); });
       document.querySelectorAll('[data-dn]').forEach(b => b.addEventListener('click', () => { st.n = +b.dataset.dn; $('dN').value = st.n; ui(); }));
       on('dPrev', () => go(st.step - 1)); on('dNext', () => go(st.step + 1));
+      document.querySelectorAll('[data-step]').forEach(b => b.addEventListener('click', () => go(+b.dataset.step)));
       setTally(st.tally); ui(); kick();
     },
     render() { grain = null; kick(); },
