@@ -21,7 +21,7 @@ The party a resident is registered with on the public voter file (Democratic, Re
 _Avoid_: Affiliation, party ID, partisanship
 
 **Vote choice**:
-How a resident would vote in the election (a candidate, or "wouldn't vote"): what a poll asks, and always modeled, never known for any real person.
+How a resident would vote in the election (a candidate, or "wouldn't vote"): what a poll asks. Whether they vote comes from the voter record where one exists; which candidate is always modeled, never known for any real person.
 _Avoid_: Affiliation, vote, preference
 
 **Poll**:
