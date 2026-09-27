@@ -4,12 +4,16 @@ An interactive explainer, for readers without a stats background, of why a rando
 
 ## Language
 
+**Rung**:
+One step of the explainer that proves a single claim the reader can check; each rung relies only on claims proven by the rungs below it, and moves up one level of abstraction.
+_Avoid_: Level, stage, chapter
+
 **Population**:
-Everyone living in the simulated state; the whole group a poll is trying to describe.
+Everyone in the group a poll is trying to describe: the simulated state on the state rung, the whole US on the national rung.
 _Avoid_: Universe, dataset
 
 **Resident**:
-One simulated person in the population, with a name, address and political affiliation.
+One synthetic person in the simulated state, with a name, address and political affiliation; never a real individual. The national rung has no residents.
 _Avoid_: Voter, citizen, agent, record
 
 **Poll**:
