@@ -1,4 +1,4 @@
-# PROTOTYPE: rung list (draft 2, throwaway)
+# PROTOTYPE: rung list (draft 2, confirmed, throwaway)
 
 Rough outline for [Draft the list of rungs](https://github.com/shivan2418/but-the-sample-size/issues/6), written to be reacted to, not a spec.
 Draft 2 applies the map owner's answers (ticket comments at 17:12, 17:18, 17:43) and the North Carolina decisions (ADR 0001, `CONTEXT.md`). Draft 1 is in git history.
@@ -7,7 +7,7 @@ Each rung: **claim** (the one thing it proves) · **widget** · **inspect** (wha
 
 ## Applies to every rung from the marbles on
 
-- **Sample size is the reader's.** A size control (typing and presets such as 100 · 1,200 · 12,000), capped at the population size.
+- **Sample size is the reader's.** A size control (typing and presets such as 100 · 1,200 · 12,000), capped at the population size. On the resident rungs it counts everyone asked, voters or not; the margin-of-error readout for the comparison with the real result reflects the voters among them (1,200 asked ≈ 900 voters ≈ ±3.3).
 - **"% of population" readout** next to it, e.g. "1,200 is 0.015% of 7.85 million".
 - **Side-by-side sizes.** Pin one size and try another: two spreads of repeated polls, e.g. 1,200 vs 12,000.
 - **Margin of error.** A live readout: "95% of polls land within ±X points". It's named "margin of error" once, on the marble rung, so readers can match it to news reports. After that it's just the readout.
@@ -35,6 +35,7 @@ Each rung: **claim** (the one thing it proves) · **widget** · **inspect** (wha
 - **Claim:** people work like marbles. In a real North Carolina town, a random poll of its residents lands near the town's real 2024 result, with the same spread as the marbles.
 - **Widget:** a dot map of the town, one dot per resident on their house, with a race/party toggle. The reader polls a sample size of their choosing (up to the whole town). Drawn residents light up, and the tally shows their vote choice, with "wouldn't vote" as an answer. Next to it: the town's real 2024 result, compared on the shares among those who voted. The size cap is the town's registered-voter count, so polling everyone is possible, and the result then matches the town's true split exactly: the marble rung's small jar again.
 - **Inspect:** each poll's list of drawn residents (full addresses), and each drawn resident's card: invented name, real address, real party registration, race, age and 2024 turnout, modeled candidate, and the "Invented resident · real address" tag. Also the town's true split and real result. A whole-town poll lets the reader audit the full count.
+- **Introduces residents:** the disclaimer sentence and the line saying the population is registered voters (the town's count, and 7.85 million of North Carolina's 11 million people) go here, where residents first appear.
 - **Relies on:** 1.
 - _The residents are the town's slice of the state's residents: the same people and the same houses as rungs 3 and 4._
 
@@ -49,7 +50,7 @@ Each rung: **claim** (the one thing it proves) · **widget** · **inspect** (wha
 ## 4. A state: North Carolina
 
 - **Claim:** scale up to North Carolina's 7.85 million registered voters, and a random poll of 1,200 is as accurate as it was in the town.
-- **Widget:** a statewide dot map, one dot per resident on their house, with the race/party toggle. Houses with no registered voter have no dot. The reader picks the sample size (1,200 by default; one poll of 12,000 is fine at about 0.4 MB). Each poll is one blockdb run, and its drawn residents light up. The tally sits next to the real 2024 result (R +3.2). People-level repeats are capped. One sentence says "registered voters" with both numbers: 7.85 million of the state's 11 million people. A one-line credit sits under the widget.
+- **Widget:** a statewide dot map, one dot per resident on their house, with the race/party toggle. Houses with no registered voter have no dot. The reader picks the sample size (1,200 by default; one poll of 12,000 is fine at about 0.4 MB). Each poll is one blockdb run, and its drawn residents light up. The tally sits next to the real 2024 result (R +3.2). People-level repeats are capped. The state's numbers (7.85 million registered voters of 11 million people) are restated from rung 2. A one-line credit sits under the widget.
 - **Inspect:** each drawn resident's card (as in rung 2) and their dot; the statewide true split; where it comes from, in one plain sentence: real registration, race and turnout; the candidate is our estimate, fitted to each precinct's real result.
 - **Relies on:** 1, 2, 3.
 
@@ -74,9 +75,9 @@ Each rung: **claim** (the one thing it proves) · **widget** · **inspect** (wha
 
 ---
 
-## Questions this draft raises
+## Answers from the map owner (confirmation)
 
-1. **Where the disclaimer and "registered voters" line go.** The decisions put both on the state rung. But residents now first appear on the town rung (2), and rung 3 uses them too. Proposal: move the disclaimer sentence and the "registered voters, 7.85M of 11M" line to rung 2. The state rung then restates the numbers for the whole state. The card tag is everywhere regardless.
-2. **What "sample size" counts.** Polls ask every drawn registered voter, and roughly one in four didn't vote in 2024, so a poll of 1,200 compares only about 900 voters' answers with the real result. Its margin on that comparison is closer to ±3.3 than ±2.8. Options: (a) the size counts everyone asked, and the readout reflects the voters among them; (b) the size counts voters, and the page keeps drawing until it has that many, like a "likely voter" poll. (a) is simpler and honest; (b) keeps "1,200" matching the headline.
-3. **Town dots before a poll.** The draft shows every resident's dot (colour only) on the town and state maps, but opens a card only for drawn residents. That keeps "reached only through polls" true for cards. Confirm that the dots themselves aren't a lookup.
-4. **Restricted polls need a restricted random order.** The residents are sorted by one statewide random draw number, so a contiguous run is a random statewide poll. A random poll of one town (2) or one city (3) needs either per-place ordering in blockdb or a filtered scan. That's a build question for the resident layout, not for this list. Flagging it so the town and city rungs aren't assumed to be free.
+1. **Disclaimer and "registered voters" line:** on the town rung (2), where residents first appear. The state rung restates the numbers.
+2. **Sample size counts everyone asked.** The readout for the comparison with the real result reflects the voters among them.
+3. **Dots before a poll:** every resident's dot shows (colour only) on the town and state maps; cards open only for drawn residents. That's consistent with "no lookup".
+4. **Restricted polls** (one town or city, rungs 2 and 3) need per-place random ordering or a filtered scan in blockdb. That's left to the resident-layout build, not to this list.
