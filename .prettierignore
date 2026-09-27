@@ -1,0 +1,16 @@
+# Package Managers
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+bun.lock
+bun.lockb
+
+# Miscellaneous
+/static/
+
+# Not the app: agent skills, planning docs and standalone prototypes keep their own style
+/.claude/
+/docs/
+/prototypes/
+/*.md
+skills-lock.json
