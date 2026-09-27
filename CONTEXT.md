@@ -9,11 +9,11 @@ One step of the explainer that proves a single claim the reader can check; each 
 _Avoid_: Level, stage, chapter
 
 **Population**:
-Everyone in the group a poll is trying to describe: the simulated state on the state rung, the whole US on the national rung.
+Everyone in the group a poll is trying to describe. On the state rung, that's the people registered to vote in North Carolina on election day 2024 (about 7.85 million, not the state's 11 million inhabitants), and a town's population is its share of them. On the national rung, it's the whole US.
 _Avoid_: Universe, dataset
 
 **Resident**:
-One person in the simulated state, with an invented name at a real address. Their party registration, race, age and whether they voted come from a real voter record at that address, or are synthesized for people not on the voter file; the candidate they would choose is always modeled. A resident never stands for a named real individual. The national rung has no residents.
+One registered voter in the simulated state, with an invented name at their real registered address. Their party registration, race, age and whether they voted come from their real voter record; only the candidate they would choose is modeled. Nobody is synthesized: people not registered to vote aren't residents, and an address has as many residents as it has registered voters. A resident never stands for a named real individual. The national rung has no residents.
 _Avoid_: Voter, citizen, agent, record
 
 **Party registration**:
@@ -21,7 +21,7 @@ The party a resident is registered with on the public voter file (Democratic, Re
 _Avoid_: Affiliation, party ID, partisanship
 
 **Vote choice**:
-How a resident would vote in the election (a candidate, or "wouldn't vote"): what a poll asks. Whether they vote comes from the voter record where one exists; which candidate is always modeled, never known for any real person.
+How a resident would vote in the election (a candidate, or "wouldn't vote"): what a poll asks. Whether they vote comes from the voter record; which candidate is always modeled, never known for any real person.
 _Avoid_: Affiliation, vote, preference
 
 **Poll**:
