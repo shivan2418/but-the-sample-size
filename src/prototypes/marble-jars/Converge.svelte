@@ -1,18 +1,20 @@
 <script lang="ts">
 	// PROTOTYPE, throwaway. Variant G, from the map owner's reaction to E (Pour): keep the pour's
 	// convergence, drop the technical chart. The jar stands on the right; each marble flies out and
-	// lands on the left. Below, one line from 0% to 100% with the true split marked, and a marker for
-	// "% red so far" that moves after every marble. It jumps about at first and settles as N grows.
+	// lands on the left. Below, the share so far moves after every marble and settles on the truth.
+	// Three skippable stages: a jar of 1,000, a jar of 1,000,000, then a million with four colours
+	// (two parties, didn't vote, third party). The reader sets any sample size, can read the 95%
+	// range for it, and can run 20 counts at once to see which ones miss.
 	import { onMount } from 'svelte';
 	import {
-		P,
-		SMALL,
 		circle,
+		clampN,
 		fit,
 		fmt,
-		jar,
 		jarPath,
 		palettes,
+		pctOf,
+		seeded,
 		shuffle,
 		tok,
 		type PaletteKey
@@ -21,110 +23,356 @@
 	let {
 		speed = 1,
 		palette = 'redBlue',
+		startStage = 0,
 		startWith = 0,
-		startTarget = 100
+		startTarget = 100,
+		multiDisplay = 'bars',
+		startRuns = false
 	}: {
 		speed?: number;
 		palette?: PaletteKey;
+		/** 0: 1,000 marbles, 1: 1,000,000, 2: 1,000,000 in four colours. */
+		startStage?: number;
 		/** Marbles already counted when the story opens. */
 		startWith?: number;
-		/** How many marbles the reader plans to take out: the pile is sized for this from the start. */
+		/** The sample size the reader starts with: the pile is sized for it from the first marble. */
 		startTarget?: number;
+		/** How the four-colour stage shows the shares: one marker per colour, or stacked bars. */
+		multiDisplay?: 'markers' | 'bars';
+		/** Open with 20 counts already run. */
+		startRuns?: boolean;
 	} = $props();
 
+	type Cat = { name: string; share: number; col: string };
 	const A = $derived(palettes[palette].a.name);
 	const B = $derived(palettes[palette].b.name);
+	const stages = $derived([
+		{
+			N: 1000,
+			t: 'One jar',
+			lede: `This jar holds 1,000 marbles, and 55% of them are ${A}. Take some out and keep count. How close does your count get to 55%?`,
+			cats: [
+				{ name: A, share: 0.55, col: '--a' },
+				{ name: B, share: 0.45, col: '--b' }
+			] as Cat[]
+		},
+		{
+			N: 1_000_000,
+			t: 'A jar 1,000 times bigger',
+			lede: `This jar holds a million marbles, mixed the same way: 55% ${A}. Take out the same number as before. Does a bigger jar need a bigger handful?`,
+			cats: [
+				{ name: A, share: 0.55, col: '--a' },
+				{ name: B, share: 0.45, col: '--b' }
+			] as Cat[]
+		},
+		{
+			N: 1_000_000,
+			t: 'More than two colours',
+			lede: `Real elections have more than two answers. This million-marble jar is 40% ${A}, 35% ${B}, 20% grey for people who didn’t vote and 5% for a third party. Every colour settles at once.`,
+			cats: [
+				{ name: A, share: 0.4, col: '--a' },
+				{ name: B, share: 0.35, col: '--b' },
+				{ name: 'didn’t vote', share: 0.2, col: '--grey' },
+				{ name: 'third party', share: 0.05, col: '--third' }
+			] as Cat[]
+		}
+	]);
 
-	// geometry
+	// Start values only: the story sets them once, the reader changes them after.
+	// svelte-ignore state_referenced_locally
+	let stage = $state(Math.max(0, Math.min(2, startStage)));
+	// svelte-ignore state_referenced_locally
+	let target = $state(startTarget);
+	const S = $derived(stages[stage]);
+	const cats = $derived(S.cats);
+	const multi = $derived(cats.length > 2);
+
+	/** 95% margin of error in points for a share `p`, with the finite-population correction. */
+	const moeP = (p: number, n: number, N: number) =>
+		n >= N ? 0 : 1.96 * Math.sqrt(((p * (1 - p)) / n) * ((N - n) / (N - 1))) * 100;
+	const fmtPts = (m: number) => (m === 0 ? '0' : m < 0.1 ? m.toFixed(2) : m.toFixed(1));
+
+	// ---- the small jar's 1,000 marbles, fixed in place in the pile ----
 	const JW = 100,
 		JH = 160,
-		TOP = 34,
-		LINE_Y = TOP + JH + 62,
-		H = LINE_Y + 44;
+		TOP = 34;
 	const pile = (() => {
 		const iw = JW - 8,
 			ih = JH * 0.93 - 8,
-			d = Math.sqrt(((iw * ih) / SMALL) * (2 / Math.sqrt(3))) * 0.97,
+			d = Math.sqrt(((iw * ih) / 1000) * (2 / Math.sqrt(3))) * 0.97,
 			pts: [number, number][] = [];
-		for (let row = 0; pts.length < SMALL; row++) {
+		for (let row = 0; pts.length < 1000; row++) {
 			const y = JH - 4 - d / 2 - row * d * 0.866,
 				off = row % 2 ? d / 2 : 0;
-			for (let x = 4 + d / 2 + off; x <= JW - 4 - d / 2 && pts.length < SMALL; x += d)
+			for (let x = 4 + d / 2 + off; x <= JW - 4 - d / 2 && pts.length < 1000; x += d)
 				pts.push([x, y]);
 		}
 		return { pts, r: d / 2 - 0.3 };
 	})();
+	const smallJar = shuffle(Array.from({ length: 1000 }, (_, i) => (i < 550 ? 0 : 1)));
 
-	// the order marbles come out in; landed[i] is the i-th marble counted
-	let order = shuffle(Array.from({ length: SMALL }, (_, i) => i));
-	let taken = 0; // marbles that have left the jar (some may still be flying)
-	const out = new Uint8Array(SMALL);
-	let landed: number[] = [];
-	let flying: { m: number; t0: number; dur: number }[] = [];
+	/** One marble at a time from the current stage's jar, exact (without replacement). */
+	function source(st: number, N: number, cs: Cat[]) {
+		if (st === 0) {
+			const order = shuffle(Array.from({ length: 1000 }, (_, i) => i));
+			let k = 0;
+			return { next: () => (k < 1000 ? { cat: smallJar[order[k]], m: order[k++] } : null) };
+		}
+		const R = cs.map((c) => Math.round(c.share * N));
+		let T = N;
+		return {
+			next: () => {
+				if (T === 0) return null;
+				let u = Math.random() * T,
+					cat = 0;
+				while (u >= R[cat]) u -= R[cat++];
+				R[cat]--;
+				T--;
+				return { cat, m: -1 };
+			}
+		};
+	}
+	/** The tally of one whole count of `n`, drawn instantly (for "Run 20"). */
+	function sample(st: number, n: number, N: number, cs: Cat[]) {
+		const tally = cs.map(() => 0);
+		n = Math.min(n, N);
+		if (st === 0) {
+			const idx = Array.from({ length: 1000 }, (_, i) => i);
+			for (let i = 0; i < n; i++) {
+				const j = i + Math.floor(Math.random() * (1000 - i));
+				[idx[i], idx[j]] = [idx[j], idx[i]];
+				tally[smallJar[idx[i]]]++;
+			}
+			return tally;
+		}
+		const s = source(st, N, cs);
+		for (let i = 0; i < n; i++) tally[s.next()!.cat]++;
+		return tally;
+	}
+
+	// ---- engine state (plain, mutated per frame; `v` bumps when the DOM text should refresh) ----
+	let src = source(0, 1000, []);
+	let taken = 0;
+	const out = new Uint8Array(1000);
+	let landed: number[] = []; // category of each counted marble, in order
+	let flying: { cat: number; m: number; t0: number; dur: number }[] = [];
+	let counts: number[] = [0, 0];
+	let shown: number[] = [0, 0]; // eased shares for the markers and bars
 	let trail: { pct: number; t: number }[] = [];
-	let shown = 0; // the marker's drawn position, eased toward the real value
+	let runs: null | { n: number; results: number[][]; t0: number } = null;
+	// drawn positions of landed marbles, eased toward their slots so a reflow glides
+	const ANIM_MAX = 3000;
+	const px = new Float32Array(ANIM_MAX),
+		py = new Float32Array(ANIM_MAX),
+		pr = new Float32Array(ANIM_MAX);
 	let auto = $state(false),
 		counted = $state(0),
-		red = $state(0);
-	// Start value only: the story sets it once, the reader changes it after.
-	// svelte-ignore state_referenced_locally
-	let target = $state(startTarget);
+		v = $state(0),
+		tipOpen = $state(false);
 	let canvas: HTMLCanvasElement | undefined = $state();
+	// the put-back: marbles flying home, then the jar refills
+	let returning: null | {
+		t0: number;
+		items: { x: number; y: number; r: number; cat: number }[];
+		after?: () => void;
+	} = null;
+	let lastSlot = (i: number): [number, number, number] => [i, 0, 1],
+		lastGroup = 1,
+		busy = $state(false);
 	let raf = 0,
-		nextAt = 0;
+		runT0 = 0,
+		runFrom = 0,
+		grain: HTMLCanvasElement | null = null,
+		grainKey = '';
+	const ui = () => v++;
 	const kick = () => {
 		if (!raf) raf = requestAnimationFrame(frame);
 	};
 
-	/** Time between marbles: slow enough to follow one by one at first, then faster and faster. */
-	const gap = (k: number) => Math.max(8, 650 * Math.pow(0.93, k)) * speed;
-	const flight = (k: number) => Math.max(180, 600 * Math.pow(0.97, k)) * speed;
-
-	/** The biggest marble size (capped) at which `n` marbles fit in a `w` × `h` box. */
-	function gridFor(n: number, w: number, h: number) {
-		let best = { cols: 1, size: 0 };
-		for (let cols = 1; cols <= n; cols++) {
-			const size = Math.min(w / cols, h / Math.ceil(n / cols));
-			if (size > best.size) best = { cols, size };
+	/**
+	 * The pace: the first 20 marbles one by one, each gap 7% shorter than the last, then ten times
+	 * as many every 1.5 s. `elapsed(k)` is when marble k leaves; `due(t)` inverts it.
+	 */
+	const SLOW = 20;
+	const slowGap = (k: number) => 650 * Math.pow(0.93, k) * speed;
+	const elapsed = (k: number) => {
+		let s = 0;
+		for (let i = 0; i < Math.min(k, SLOW); i++) s += slowGap(i);
+		return k <= SLOW ? s : s + 1500 * speed * Math.log10(k / SLOW);
+	};
+	function due(t: number) {
+		const slowEnd = elapsed(SLOW);
+		if (t < slowEnd) {
+			let s = 0,
+				k = 0;
+			while (k < SLOW && s <= t) s += slowGap(k++);
+			return k;
 		}
-		return { cols: best.cols, size: Math.min(22, best.size) };
+		return Math.floor(SLOW * Math.pow(10, (t - slowEnd) / (1500 * speed)));
 	}
+	const flight = (k: number) => Math.max(200, 600 * Math.pow(0.97, k)) * speed;
 
-	function launch(now: number) {
-		if (taken >= SMALL) return;
-		const m = order[taken++];
-		out[m] = 1;
-		flying.push({ m, t0: now, dur: flight(taken) });
+	function launch(now: number, fly: boolean) {
+		const d = src.next();
+		if (!d) return false;
+		taken++;
+		if (d.m >= 0) out[d.m] = 1;
+		if (fly) flying.push({ cat: d.cat, m: d.m, t0: now, dur: flight(taken) });
+		else land(d.cat, now);
+		return true;
 	}
-	function land(m: number) {
-		landed.push(m);
+	function land(cat: number, now: number) {
+		landed.push(cat);
+		counts[cat]++;
 		counted = landed.length;
-		red += jar[m];
-		trail.push({ pct: (red / counted) * 100, t: performance.now() });
-		if (trail.length > 60) trail.shift();
+		if (!multi) {
+			trail.push({ pct: (counts[0] / counted) * 100, t: now });
+			if (trail.length > 60) trail.shift();
+		}
 	}
-	function takeOne() {
+	const cap = () => Math.min(target, S.N);
+
+	/** Everything counted streams back into the jar, fast; then the count starts clean. */
+	function putBack(after?: () => void) {
 		auto = false;
-		launch(performance.now());
+		if (!landed.length && !flying.length) {
+			reset();
+			after?.();
+			return;
+		}
+		const items: { x: number; y: number; r: number; cat: number }[] = [];
+		const every = Math.max(1, Math.ceil(landed.length / 400));
+		for (let i = 0; i < landed.length; i += every) {
+			const [x, y, rr] =
+				i < ANIM_MAX && lastGroup === 1 && pr[i]
+					? [px[i], py[i], pr[i]]
+					: lastSlot(Math.floor(i / lastGroup));
+			items.push({ x, y, r: Math.max(1.2, rr), cat: landed[i] });
+		}
+		const keepOut = out.slice();
+		reset();
+		out.set(keepOut); // the jar stays emptied until the marbles are back in
+		returning = { t0: performance.now(), items, after };
+		busy = true;
 		kick();
 	}
-	function toggleAuto() {
-		if (!auto && counted >= target) putBack();
-		auto = !auto;
-		nextAt = performance.now();
-		kick();
-	}
-	function putBack() {
+	function reset() {
 		auto = false;
-		order = shuffle(order);
+		src = source(stage, S.N, cats);
 		taken = 0;
 		out.fill(0);
 		landed = [];
 		flying = [];
+		counts = cats.map(() => 0);
+		shown = cats.map(() => 0);
 		trail = [];
+		pr.fill(0);
 		counted = 0;
-		red = 0;
+		ui();
 		kick();
+	}
+	function toggleAuto() {
+		if (!auto && counted >= cap()) {
+			putBack(() => toggleAuto());
+			return;
+		}
+		auto = !auto;
+		// resume on the pace curve from where the count stands
+		runT0 = performance.now() - elapsed(taken);
+		runFrom = taken;
+		kick();
+	}
+	function takeOne() {
+		auto = false;
+		launch(performance.now(), true);
+		kick();
+	}
+	function goStage(i: number) {
+		stage = i;
+		returning = null;
+		busy = false;
+		target = Math.min(target, stages[i].N);
+		runs = null;
+		tipOpen = false;
+		reset();
+	}
+	function runTwenty() {
+		const n = cap();
+		runs = {
+			n,
+			results: Array.from({ length: 20 }, () => sample(stage, n, S.N, cats)),
+			t0: performance.now()
+		};
+		ui();
+		kick();
+	}
+	const setTarget = (n: number) => {
+		target = Math.min(clampN(n), S.N);
+		runs = null;
+		ui();
+		kick();
+	};
+
+	// ---- the landing grid ----
+	const MAX_CELLS = 12000;
+	function gridFor(n: number, w: number, h: number) {
+		const group = Math.max(1, Math.ceil(n / MAX_CELLS)),
+			cells = Math.ceil(n / group);
+		let best = { cols: 1, size: 0 };
+		const guess = Math.ceil(Math.sqrt((cells * w) / h));
+		for (let cols = Math.max(1, guess - 3); cols <= Math.min(cells, guess + 3); cols++) {
+			const size = Math.min(w / cols, h / Math.ceil(cells / cols));
+			if (size > best.size) best = { cols, size };
+		}
+		return { cols: best.cols, size: Math.min(22, best.size), group };
+	}
+
+	function makeGrain(cols: string[], shares: number[]) {
+		const c = document.createElement('canvas'),
+			m = 3;
+		c.width = JW * m;
+		c.height = JH * m;
+		const g = c.getContext('2d')!;
+		g.scale(m, m);
+		g.beginPath();
+		g.roundRect(3, JH * 0.07 + 3, JW - 6, JH * 0.93 - 6, JW * 0.08);
+		g.clip();
+		const rnd = seeded(9);
+		for (let i = 0; i < 60000; i++) {
+			let u = rnd(),
+				k = 0;
+			while (k < shares.length - 1 && u >= shares[k]) u -= shares[k++];
+			g.fillStyle = cols[k];
+			g.fillRect(rnd() * JW, JH * 0.07 + 6 + rnd() * JH * 0.93, 0.6, 0.6);
+		}
+		return c;
+	}
+
+	function marker(
+		g: CanvasRenderingContext2D,
+		mx: number,
+		y: number,
+		col: string,
+		label: string,
+		ink: string,
+		mono: string,
+		x0: number,
+		x1: number
+	) {
+		g.beginPath();
+		g.moveTo(mx, y - 6);
+		g.lineTo(mx - 7, y - 18);
+		g.lineTo(mx + 7, y - 18);
+		g.closePath();
+		g.fillStyle = col;
+		g.fill();
+		if (label) {
+			g.font = '600 13px ' + mono;
+			g.textAlign = 'center';
+			g.textBaseline = 'bottom';
+			g.fillStyle = ink;
+			g.fillText(label, Math.max(x0 + 12, Math.min(x1 - 12, mx)), y - 20);
+		}
 	}
 
 	function frame(now: number) {
@@ -132,53 +380,71 @@
 		const c = canvas;
 		if (!c) return;
 		if (auto) {
-			while (now >= nextAt && taken < Math.min(target, SMALL)) {
-				launch(now);
-				nextAt += gap(taken);
-			}
-			if (taken >= Math.min(target, SMALL)) auto = false;
+			const want = Math.min(cap(), Math.max(runFrom + 1, due(now - runT0)));
+			const n = want - taken;
+			// at speed most marbles land straight away; only the last couple each frame fly
+			for (let i = 0; i < n; i++) if (!launch(now, i >= n - 2)) break;
+			if (taken >= cap()) auto = false;
 		}
-		// land in the order they left, so each marble keeps its slot
-		while (flying.length && now - flying[0].t0 >= flying[0].dur) land(flying.shift()!.m);
+		while (flying.length > 40) land(flying.shift()!.cat, now);
+		while (flying.length && now - flying[0].t0 >= flying[0].dur) land(flying.shift()!.cat, now);
 
-		const { g, w } = fit(c, H);
-		const colA = tok(c, '--a'),
-			colB = tok(c, '--b'),
-			ink = tok(c, '--ink'),
+		const colOf = cats.map((k) => tok(c, k.col));
+		const ink = tok(c, '--ink'),
 			muted = tok(c, '--muted'),
 			line = tok(c, '--line'),
 			glass = tok(c, '--glass'),
+			pin = tok(c, '--pin'),
+			surface = tok(c, '--surface'),
 			mono = tok(c, '--mono'),
 			sans = tok(c, '--sans');
-		const col = (m: number) => (jar[m] ? colA : colB);
 
-		// the jar, on the right; it drains as marbles leave
+		const bars = multi && multiDisplay === 'bars';
+		const LINE_Y = TOP + JH + 70;
+		const runsTop = LINE_Y + (bars ? 40 : 46);
+		const runsH = runs ? (multi ? 20 * 9 + 24 : 86) : 0;
+		const { g, w } = fit(c, runsTop + runsH);
+		let moving = false;
+
+		// ---- the jar, on the right ----
 		const jx = w - JW - 4;
 		g.fillStyle = glass;
 		jarPath(g, jx, TOP, JW, JH);
 		g.fill();
+		if (stage === 0) {
+			for (let m = 0; m < 1000; m++)
+				if (!out[m])
+					circle(g, jx + pile.pts[m][0], TOP + pile.pts[m][1], pile.r, colOf[smallJar[m]]);
+		} else {
+			const key = stage + colOf.join();
+			if (!grain || grainKey !== key) {
+				grain = makeGrain(
+					colOf,
+					cats.map((k) => k.share)
+				);
+				grainKey = key;
+			}
+			g.drawImage(grain, jx, TOP, JW, JH);
+		}
 		g.strokeStyle = line;
 		g.lineWidth = 1.5;
 		jarPath(g, jx, TOP, JW, JH);
 		g.stroke();
-		for (let m = 0; m < SMALL; m++)
-			if (!out[m]) circle(g, jx + pile.pts[m][0], TOP + pile.pts[m][1], pile.r, col(m));
 		g.fillStyle = muted;
 		g.font = '12px ' + mono;
 		g.textAlign = 'center';
 		g.textBaseline = 'top';
-		g.fillText(`${fmt(SMALL - taken)} left`, jx + JW / 2, TOP + JH + 6);
+		g.fillText(`${fmt(S.N - taken)} left`, jx + JW / 2, TOP + JH + 6);
 
-		// where they land, on the left: the grid is sized up front for the planned sample, so the
-		// marbles never have to shrink mid-count (only if the reader takes more than planned)
+		// ---- where they land, on the left: sized for the planned sample from the start ----
 		const lw = jx - 16,
 			lh = JH * 0.93,
 			ly = TOP + JH * 0.07,
-			{ cols, size } = gridFor(Math.max(target, landed.length + flying.length), lw, lh),
+			{ cols, size, group } = gridFor(Math.max(cap(), landed.length + flying.length), lw, lh),
 			slot = (i: number): [number, number, number] => [
-				((i % cols) + 0.5) * size,
+				2 + ((i % cols) + 0.5) * size,
 				ly + lh - (Math.floor(i / cols) + 0.5) * size,
-				Math.max(0.8, size / 2 - 0.6)
+				Math.max(0.6, size / 2 - (size > 4 ? 0.6 : 0.1))
 			];
 		g.fillStyle = glass;
 		g.globalAlpha = 0.5;
@@ -186,11 +452,29 @@
 		g.roundRect(0, ly - 4, lw + 4, lh + 8, 8);
 		g.fill();
 		g.globalAlpha = 1;
-		landed.forEach((m, i) => {
-			const [x, y, r] = slot(i);
-			circle(g, x + 2, y, r, col(m));
-		});
-		if (!landed.length && !flying.length) {
+		const cellsN = Math.ceil(landed.length / group);
+		const dot = (x: number, y: number, r: number, col: string) => {
+			if (r * 2 < 3) {
+				g.fillStyle = col;
+				g.fillRect(x - r, y - r, Math.max(1, r * 2), Math.max(1, r * 2));
+			} else circle(g, x, y, r, col);
+		};
+		for (let i = 0; i < cellsN; i++) {
+			const [tx, ty, tr] = slot(i),
+				col = colOf[landed[i * group]];
+			if (i < ANIM_MAX && group === 1) {
+				// a new marble appears at its slot; an old one glides there when the grid reflows
+				if (pr[i] === 0) [px[i], py[i], pr[i]] = [tx, ty, tr];
+				px[i] += (tx - px[i]) * 0.15;
+				py[i] += (ty - py[i]) * 0.15;
+				pr[i] += (tr - pr[i]) * 0.15;
+				if (Math.abs(tx - px[i]) + Math.abs(ty - py[i]) + Math.abs(tr - pr[i]) > 0.15)
+					moving = true;
+				else [px[i], py[i], pr[i]] = [tx, ty, tr];
+				dot(px[i], py[i], pr[i], col);
+			} else dot(tx, ty, tr, col);
+		}
+		if (!landed.length && !flying.length && !returning) {
 			g.fillStyle = muted;
 			g.font = '12px ' + sans;
 			g.textAlign = 'center';
@@ -202,95 +486,280 @@
 		g.font = '12px ' + mono;
 		g.textAlign = 'center';
 		g.textBaseline = 'top';
-		g.fillText(`${fmt(landed.length)} counted`, lw / 2, TOP + JH + 6);
+		g.fillText(
+			`${fmt(landed.length)} counted${group > 1 ? ` · 1 dot = ${fmt(group)}` : ''}`,
+			lw / 2,
+			TOP + JH + 6
+		);
+
+		lastSlot = slot;
+		lastGroup = group;
+
+		// the put-back: every marble races to the mouth in under half a second
+		if (returning) {
+			const RET = 260 * speed,
+				SPREAD = 200 * speed,
+				ret = returning,
+				len = ret.items.length,
+				mx = jx + JW / 2,
+				my = TOP - 4;
+			let left = 0;
+			ret.items.forEach((it, i) => {
+				const p = (now - ret.t0 - (SPREAD * i) / len) / RET;
+				if (p >= 1) return;
+				left++;
+				if (p < 0) return dot(it.x, it.y, it.r, colOf[it.cat]);
+				const e = p * p;
+				circle(
+					g,
+					it.x + (mx - it.x) * e,
+					it.y + (my - it.y) * e - Math.sin(Math.PI * p) * 18,
+					it.r * (1 - 0.4 * p),
+					colOf[it.cat]
+				);
+			});
+			if (left) moving = true;
+			else {
+				returning = null;
+				out.fill(0);
+				busy = false;
+				moving = true;
+				ret.after?.();
+			}
+		}
 
 		// marbles in the air: up out of the mouth, then an arc to the left
 		flying.forEach((f, j) => {
 			const p = Math.min(1, (now - f.t0) / f.dur),
-				idx = landed.length + j,
-				[tx, ty, tr] = slot(idx),
+				[tx, ty, tr] = slot(Math.floor((landed.length + j) / group)),
 				mx = jx + JW / 2,
 				my = TOP - 6;
-			const x = mx + (tx + 2 - mx) * p,
-				y = my + (ty - my) * p * p - Math.sin(Math.PI * p) * 26;
-			circle(g, x, y, pile.r + (tr - pile.r) * p + 1, col(f.m));
+			circle(
+				g,
+				mx + (tx - mx) * p,
+				my + (ty - my) * p * p - Math.sin(Math.PI * p) * 26,
+				pile.r + (Math.max(tr, 1.5) - pile.r) * p + 1,
+				colOf[f.cat]
+			);
 		});
 
-		// the line: 0% to 100%, the true split marked, and the marker for "so far"
+		// ---- the shares ----
 		const x0 = 14,
 			x1 = w - 14,
-			X = (v: number) => x0 + ((x1 - x0) * v) / 100;
-		g.strokeStyle = line;
-		g.lineWidth = 6;
-		g.lineCap = 'round';
-		g.beginPath();
-		g.moveTo(x0, LINE_Y);
-		g.lineTo(x1, LINE_Y);
-		g.stroke();
-		g.lineCap = 'butt';
-		g.fillStyle = muted;
-		g.font = '11px ' + mono;
-		g.textAlign = 'center';
-		g.textBaseline = 'top';
-		for (const t of [0, 25, 50, 75, 100]) g.fillText(t + '%', X(t), LINE_Y + 16);
-		// true value
-		g.strokeStyle = ink;
-		g.lineWidth = 2;
-		g.beginPath();
-		g.moveTo(X(P * 100), LINE_Y - 12);
-		g.lineTo(X(P * 100), LINE_Y + 12);
-		g.stroke();
-		g.fillStyle = ink;
-		g.font = '600 11px ' + sans;
-		g.textAlign = 'center';
-		g.textBaseline = 'top';
-		// where the marker has been lately: fading ticks, so the settling shows
-		for (const t of trail) {
-			const age = (now - t.t) / (2500 * speed);
-			if (age >= 1) continue;
-			g.globalAlpha = 0.5 * (1 - age);
-			g.fillStyle = ink;
-			g.fillRect(X(t.pct) - 1, LINE_Y - 5, 2, 10);
+			X = (val: number) => x0 + ((x1 - x0) * val) / 100;
+		const n = counted;
+		for (let k = 0; k < cats.length; k++) {
+			const t = n ? (counts[k] / n) * 100 : cats[k].share * 100;
+			shown[k] = n && shown[k] ? shown[k] + (t - shown[k]) * 0.25 : t;
+			if (Math.abs(t - shown[k]) < 0.05) shown[k] = t;
+			else moving = true;
 		}
-		g.globalAlpha = 1;
-		g.fillStyle = ink;
-		if (counted) {
-			const target = (red / counted) * 100;
-			shown = shown + (target - shown) * 0.25;
-			if (Math.abs(target - shown) < 0.05) shown = target;
-			const mx = X(shown);
+		const moes = cats.map((k) => moeP(k.share, cap(), S.N));
+
+		if (!bars) {
+			// the track, 0% to 100%
+			g.strokeStyle = line;
+			g.lineWidth = 6;
+			g.lineCap = 'round';
 			g.beginPath();
-			g.moveTo(mx, LINE_Y - 6);
-			g.lineTo(mx - 7, LINE_Y - 18);
-			g.lineTo(mx + 7, LINE_Y - 18);
-			g.closePath();
-			g.fillStyle = colA;
-			g.fill();
-			g.font = '600 13px ' + mono;
-			g.textBaseline = 'bottom';
-			g.fillStyle = ink;
-			g.fillText(`${shown.toFixed(0)}%`, Math.max(x0 + 12, Math.min(x1 - 12, mx)), LINE_Y - 20);
-			g.font = '600 11px ' + sans;
+			g.moveTo(x0, LINE_Y);
+			g.lineTo(x1, LINE_Y);
+			g.stroke();
+			g.lineCap = 'butt';
+			g.fillStyle = muted;
+			g.font = '11px ' + mono;
+			g.textAlign = 'center';
 			g.textBaseline = 'top';
-			g.fillText('true 55%', X(P * 100), LINE_Y + 30);
+			for (const t of [0, 25, 50, 75, 100]) g.fillText(t + '%', X(t), LINE_Y + 16);
+			if (!multi) {
+				// the 95% band around the truth for this sample size, down through the 20 runs
+				const tv = cats[0].share * 100,
+					m = moes[0];
+				g.fillStyle = colOf[0];
+				g.globalAlpha = 0.18;
+				g.fillRect(X(tv - m), LINE_Y - 9, Math.max(2, X(tv + m) - X(tv - m)), 18);
+				if (runs)
+					g.fillRect(X(tv - m), runsTop + 12, Math.max(2, X(tv + m) - X(tv - m)), runsH - 16);
+				g.globalAlpha = 1;
+				g.strokeStyle = ink;
+				g.lineWidth = 2;
+				g.beginPath();
+				g.moveTo(X(tv), LINE_Y - 12);
+				g.lineTo(X(tv), LINE_Y + 12);
+				g.stroke();
+				for (const t of trail) {
+					const age = (now - t.t) / (2500 * speed);
+					if (age >= 1) continue;
+					moving = true;
+					g.globalAlpha = 0.5 * (1 - age);
+					g.fillStyle = ink;
+					g.fillRect(X(t.pct) - 1, LINE_Y - 5, 2, 10);
+				}
+				g.globalAlpha = 1;
+				g.fillStyle = ink;
+				g.font = '600 11px ' + sans;
+				g.textAlign = 'center';
+				g.textBaseline = 'top';
+				g.fillText(`true ${Math.round(tv)}%`, X(tv), LINE_Y + 30);
+				if (n)
+					marker(g, X(shown[0]), LINE_Y, colOf[0], `${shown[0].toFixed(0)}%`, ink, mono, x0, x1);
+			} else {
+				// one true tick and one marker per colour
+				cats.forEach((k, i) => {
+					g.strokeStyle = colOf[i];
+					g.lineWidth = 3;
+					g.beginPath();
+					g.moveTo(X(k.share * 100), LINE_Y - 3);
+					g.lineTo(X(k.share * 100), LINE_Y + 12);
+					g.stroke();
+					if (n) marker(g, X(shown[i]), LINE_Y, colOf[i], '', ink, mono, x0, x1);
+				});
+			}
 		} else {
-			g.textBaseline = 'bottom';
-			g.fillText('true 55%', X(P * 100), LINE_Y - 14);
+			// two stacked bars: the jar's mix, and the count's mix sliding toward it
+			const bar = (y: number, shares: number[] | null, label: string) => {
+				g.fillStyle = muted;
+				g.font = '600 11px ' + sans;
+				g.textAlign = 'left';
+				g.textBaseline = 'bottom';
+				g.fillText(label, x0, y - 3);
+				if (!shares) {
+					g.fillStyle = line;
+					g.fillRect(x0, y, x1 - x0, 16);
+					return;
+				}
+				let acc = 0;
+				shares.forEach((s, i) => {
+					g.fillStyle = colOf[i];
+					g.fillRect(X(acc), y, X(acc + s) - X(acc), 16);
+					if (X(acc + s) - X(acc) > 26) {
+						g.fillStyle = surface;
+						g.font = '600 10px ' + mono;
+						g.textAlign = 'center';
+						g.textBaseline = 'middle';
+						g.fillText(s.toFixed(0) + '%', (X(acc) + X(acc + s)) / 2, y + 8.5);
+					}
+					acc += s;
+				});
+			};
+			const jarY = LINE_Y - 30,
+				cntY = LINE_Y + 12;
+			bar(
+				jarY,
+				cats.map((k) => k.share * 100),
+				'IN THE JAR'
+			);
+			bar(cntY, n ? shown : null, 'YOUR COUNT');
+			// guides at the jar's boundaries, down through the count (and the 20 runs)
+			g.strokeStyle = ink;
+			g.setLineDash([2, 2]);
+			g.lineWidth = 1;
+			let acc = 0;
+			for (let i = 0; i < cats.length - 1; i++) {
+				acc += cats[i].share * 100;
+				g.beginPath();
+				g.moveTo(Math.round(X(acc)) + 0.5, jarY);
+				g.lineTo(Math.round(X(acc)) + 0.5, cntY + 16 + runsH);
+				g.stroke();
+			}
+			g.setLineDash([]);
 		}
 
-		const moving = counted > 0 && shown !== (red / counted) * 100;
-		const fading = trail.some((t) => now - t.t < 2500 * speed);
-		if (auto || flying.length || moving || fading) kick();
+		// ---- 20 counts at once, the misses ringed ----
+		if (runs) {
+			const shownRuns = Math.min(20, Math.floor((now - runs.t0) / (110 * speed)) + 1);
+			if (shownRuns < 20) moving = true;
+			const rn = runs.n,
+				res = runs.results.slice(0, shownRuns),
+				rm = cats.map((k) => moeP(k.share, rn, S.N));
+			g.fillStyle = muted;
+			g.font = '600 11px ' + sans;
+			g.textAlign = 'left';
+			g.textBaseline = 'top';
+			g.fillText(`20 COUNTS OF ${fmt(rn)}`, x0, runsTop - 2);
+			if (!multi) {
+				// each dot sits at its exact value (rounding could push one across the band's edge) and
+				// stacks on any dot it would overlap; the band runs down behind them
+				const placed: { x: number; k: number }[] = [];
+				res.forEach((r) => {
+					const pct = (r[0] / rn) * 100,
+						miss = Math.abs(pct - cats[0].share * 100) > rm[0] + 1e-9,
+						bx = X(pct),
+						k =
+							placed.filter((q) => Math.abs(q.x - bx) < 8).reduce((m, q) => Math.max(m, q.k), 0) +
+							1,
+						y = runsTop + runsH - 12 - (k - 1) * 9;
+					placed.push({ x: bx, k });
+					circle(g, bx, y, 3.6, miss ? ink : pin);
+					if (miss) {
+						g.strokeStyle = ink;
+						g.lineWidth = 1.5;
+						g.beginPath();
+						g.arc(bx, y, 7, 0, 7);
+						g.stroke();
+					}
+				});
+			} else {
+				// one thin bar per count; each colour is judged on its own range, and a share that
+				// lands outside it is drawn solid and outlined
+				res.forEach((r, j) => {
+					const y = runsTop + 16 + j * 9;
+					let acc = 0;
+					r.forEach((cnt, i) => {
+						const s = (cnt / rn) * 100,
+							miss = Math.abs(s - cats[i].share * 100) > rm[i] + 1e-9;
+						g.fillStyle = colOf[i];
+						g.globalAlpha = miss ? 1 : 0.5;
+						g.fillRect(X(acc), y, X(acc + s) - X(acc), 6);
+						g.globalAlpha = 1;
+						if (miss) {
+							g.strokeStyle = ink;
+							g.lineWidth = 1.5;
+							g.strokeRect(X(acc) - 1, y - 2, X(acc + s) - X(acc) + 2, 10);
+						}
+						acc += s;
+					});
+				});
+			}
+		}
+
+		if (auto || flying.length || moving) kick();
+		else ui();
 	}
 
-	onMount(() => {
-		for (let i = 0; i < Math.min(startWith, SMALL); i++) {
-			out[order[taken]] = 1;
-			land(order[taken++]);
+	// ---- text ----
+	const info = $derived.by(() => {
+		void v;
+		const n = Math.min(target, S.N),
+			moes = cats.map((k) => moeP(k.share, n, S.N)),
+			shares = cats.map((_, i) => (counted ? ((counts[i] ?? 0) / counted) * 100 : 0)),
+			off = cats.map((k, i) => Math.abs(shares[i] - k.share * 100));
+		let runText = '';
+		if (runs) {
+			const rn = runs.n,
+				rm = cats.map((k) => moeP(k.share, rn, S.N));
+			// every colour of every count is judged on its own 95% range
+			const misses = runs.results
+				.flatMap((r) =>
+					r.map((cnt, i) => Math.abs((cnt / rn) * 100 - cats[i].share * 100) > rm[i] + 1e-9)
+				)
+				.filter(Boolean).length;
+			const total = 20 * cats.length;
+			runText =
+				rm[0] === 0
+					? `Every count of ${fmt(rn)} is the whole jar, so all 20 land exactly on the truth.`
+					: !multi
+						? `${20 - misses} of 20 landed inside the range, and ${misses === 0 ? 'none' : misses} missed${misses ? ' (ringed)' : ''}. Expect about 1 in 20 to miss.`
+						: `20 counts × ${cats.length} colours = ${total} shares. ${total - misses} landed inside their range, and ${misses === 0 ? 'none' : misses} missed${misses ? ' (outlined)' : ''}. Expect about 1 in 20 to miss, so about ${Math.round(total / 20)} here.`;
 		}
-		shown = counted ? (red / counted) * 100 : 0;
-		trail = [];
-		kick();
+		return { n, moes, shares, off, runText, whole: n >= S.N };
+	});
+
+	onMount(() => {
+		reset();
+		for (let i = 0; i < Math.min(startWith, cap()); i++) launch(performance.now(), false);
+		if (startRuns) runTwenty();
+		ui();
 		const ro = new ResizeObserver(kick);
 		if (canvas) ro.observe(canvas);
 		return () => {
@@ -300,47 +769,184 @@
 	});
 	$effect(() => {
 		void palette;
+		void multiDisplay;
 		kick();
 	});
 </script>
 
 <div class="widget">
-	<p class="lede">
-		This jar holds 1,000 marbles, and 55% of them are {A}. Take them out one at a time and keep
-		count. How close is your count to 55%?
-	</p>
+	<div class="steps" role="tablist" aria-label="Stages">
+		{#each stages as s, i (i)}
+			<button
+				class="stepbtn"
+				class:on={i <= stage}
+				role="tab"
+				aria-selected={i === stage}
+				aria-label="Stage {i + 1}: {s.t}"
+				onclick={() => goStage(i)}
+			></button>
+		{/each}
+	</div>
+	<div class="eyebrow">Step {stage + 1} of 3</div>
+	<h2>{S.t}</h2>
+	<p class="lede">{S.lede}</p>
 	<canvas
 		bind:this={canvas}
-		aria-label="A jar on the right, the marbles counted so far on the left, and a line showing the share of {A} so far against the true 55%"
+		aria-label="A jar on the right, the marbles counted so far on the left, and the share of each colour so far against the true mix"
 	></canvas>
 	<div class="tally" aria-live="polite">
 		{#if counted}
-			<b class="num">{fmt(counted)}</b> counted: <b class="ca">{fmt(red)}</b>
-			{A}, <b class="cb">{fmt(counted - red)}</b>
-			{B}. That’s <b>{((red / counted) * 100).toFixed(1)}% {A}</b>.
+			<b class="num">{fmt(counted)}</b> counted:
+			{#each cats as k, i (i)}
+				<span class="chip" style:--c="var({k.col})"></span><b class="num"
+					>{info.shares[i].toFixed(1)}%</b
+				>
+				{k.name}{i < cats.length - 1 ? ', ' : '.'}
+			{/each}
 		{:else}
 			Nothing counted yet.
 		{/if}
 	</div>
-	<div class="row" role="group" aria-label="How many to take out">
-		<span class="eyebrow">Take out</span>
-		{#each [10, 50, 100, 250, 1000] as t (t)}
-			<button aria-pressed={target === t} onclick={() => ((target = t), kick())}>{fmt(t)}</button>
+
+	<div class="row" role="group" aria-label="Sample size">
+		<label class="eyebrow" for="conv-n">Take out</label>
+		<input
+			id="conv-n"
+			type="number"
+			min="1"
+			max={S.N}
+			inputmode="numeric"
+			value={target}
+			onchange={(e) => setTarget(Number(e.currentTarget.value))}
+		/>
+		<button
+			class="info"
+			aria-expanded={tipOpen}
+			aria-label="What to expect"
+			onclick={() => (tipOpen = !tipOpen)}>i</button
+		>
+		<span class="small">= {pctOf(info.n, S.N)} of the jar</span>
+	</div>
+	<div class="row presets">
+		{#each stage === 0 ? [10, 100, 1000] : [10, 100, 1000, 10000] as p (p)}
+			<button aria-pressed={target === p} onclick={() => setTarget(p)}>{fmt(p)}</button>
 		{/each}
 	</div>
-	<div class="row">
-		<button class="primary" onclick={toggleAuto}>
-			{auto ? 'Pause' : counted >= target ? 'Again' : counted ? 'Keep going' : 'Start'}
-		</button>
-		<button onclick={takeOne} disabled={auto || counted >= SMALL}>Take one out</button>
-		<button onclick={putBack} disabled={!counted && !auto}>Put them back</button>
-	</div>
-	{#if counted >= SMALL}
-		<div class="moe">You counted every marble, so your count is exactly 55%.</div>
-	{:else if counted >= 100}
-		<div class="moe">
-			After {fmt(counted)} marbles your count is {Math.abs((red / counted) * 100 - 55).toFixed(1)} points
-			from the truth.
+	{#if tipOpen}
+		<div class="tip" role="note">
+			{#if info.whole}
+				{fmt(info.n)} is every marble in the jar, so your count will be exactly right, every time.
+			{:else if !multi}
+				With {fmt(info.n)} marbles, 95% of counts land within
+				<b>±{fmtPts(info.moes[0])} points</b>
+				of the true {Math.round(cats[0].share * 100)}%. That’s the shaded band on the line.
+				Pollsters call it the <strong>margin of error</strong>.
+			{:else}
+				With {fmt(info.n)} marbles, 95% of counts get each colour within:
+				{#each cats as k, i (i)}
+					<span class="nowrap"
+						><span class="chip" style:--c="var({k.col})"></span>{k.name}
+						<b>±{fmtPts(info.moes[i])}</b></span
+					>{i < cats.length - 1 ? ', ' : '.'}
+				{/each}
+				Smaller shares wobble less in points.
+			{/if}
 		</div>
 	{/if}
+
+	<div class="row">
+		<button class="primary" onclick={toggleAuto} disabled={busy}>
+			{auto ? 'Pause' : counted >= info.n ? 'Again' : counted ? 'Keep going' : 'Start'}
+		</button>
+		<button onclick={takeOne} disabled={auto || counted >= S.N}>Take one out</button>
+		<button onclick={() => putBack()} disabled={busy || (!counted && !auto)}>Put them back</button>
+	</div>
+	<div class="row">
+		<button onclick={runTwenty}>Run 20 counts of {fmt(info.n)}</button>
+	</div>
+	{#if info.runText}
+		<div class="moe">{info.runText}</div>
+	{:else if counted >= S.N}
+		<div class="moe">You counted every marble, so your count is exactly right.</div>
+	{:else if counted >= info.n && counted >= 10}
+		<div class="moe">
+			After {fmt(counted)} marbles ({pctOf(counted, S.N)} of the jar),
+			{#if multi}
+				every colour is within <b>{Math.max(...info.off).toFixed(1)} points</b> of the truth.
+			{:else}
+				your count is <b>{info.off[0].toFixed(1)} points</b> from the truth.
+			{/if}
+		</div>
+	{/if}
+	<div class="stepnav">
+		<button disabled={stage === 0} onclick={() => goStage(stage - 1)}>Back</button>
+		<button class="primary" disabled={stage === 2} onclick={() => goStage(stage + 1)}
+			>Next step</button
+		>
+	</div>
 </div>
+
+<style>
+	.steps {
+		display: flex;
+		gap: 6px;
+	}
+	.stepbtn {
+		flex: 1;
+		height: 18px;
+		padding: 7px 0;
+		border: 0;
+		border-radius: 0;
+		background: transparent;
+		position: relative;
+	}
+	.stepbtn::after {
+		content: '';
+		position: absolute;
+		left: 0;
+		right: 0;
+		top: 7px;
+		height: 4px;
+		border-radius: 2px;
+		background: var(--line);
+	}
+	.stepbtn.on::after {
+		background: var(--ink);
+	}
+	.stepnav {
+		display: flex;
+		justify-content: space-between;
+		gap: 8px;
+	}
+	.presets {
+		margin-top: -4px;
+	}
+	.info {
+		width: 30px;
+		height: 30px;
+		padding: 0;
+		font: italic 600 15px var(--serif);
+	}
+	.tip {
+		background: var(--ink);
+		color: var(--surface);
+		border-radius: 8px;
+		padding: 10px 12px;
+		font-size: 14px;
+		line-height: 1.45;
+	}
+	.tip b {
+		font-family: var(--mono);
+	}
+	.chip {
+		display: inline-block;
+		width: 9px;
+		height: 9px;
+		border-radius: 50%;
+		background: var(--c);
+		margin: 0 3px 0 2px;
+	}
+	.nowrap {
+		white-space: nowrap;
+	}
+</style>

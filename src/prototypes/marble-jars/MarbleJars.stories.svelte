@@ -14,9 +14,11 @@
 		argTypes: {
 			palette: { control: 'inline-radio', options: ['redBlue', 'neutral'] },
 			speed: { control: { type: 'range', min: 0.25, max: 3, step: 0.25 } },
-			axisRange: { control: 'inline-radio', options: ['full', 'zoomed'] }
+			axisRange: { control: 'inline-radio', options: ['full', 'zoomed'] },
+			third: { control: 'inline-radio', options: ['yellow', 'purple'] },
+			multiDisplay: { control: 'inline-radio', options: ['bars', 'markers'] }
 		},
-		args: { palette: 'redBlue', speed: 1, axisRange: 'full' }
+		args: { palette: 'redBlue', speed: 1, axisRange: 'full', third: 'yellow' }
 	});
 
 	const intro =
@@ -79,20 +81,64 @@
 	{/snippet}
 </Story>
 
-<Story name="G · Converge" exportName="Converge" args={{ startWith: 0, startTarget: 100 }}>
+<Story name="G · 1 One jar" exportName="Converge1OneJar" args={{ startStage: 0, startTarget: 100 }}>
 	{#snippet template(args)}
-		<Frame palette={args.palette} {intro}>
+		<Frame palette={args.palette} third={args.third} {intro}>
 			<Converge {...args} />
 		</Frame>
 	{/snippet}
 </Story>
 <Story
-	name="G · Converge, 40 counted"
-	exportName="Converge40"
-	args={{ startWith: 40, startTarget: 1000 }}
+	name="G · 1 One jar, 20 counts"
+	exportName="Converge1Runs"
+	args={{ startStage: 0, startTarget: 100, startRuns: true }}
 >
 	{#snippet template(args)}
-		<Frame palette={args.palette} {intro}>
+		<Frame palette={args.palette} third={args.third} {intro}>
+			<Converge {...args} />
+		</Frame>
+	{/snippet}
+</Story>
+<Story
+	name="G · 2 Jar of a million"
+	exportName="Converge2BigJar"
+	args={{ startStage: 1, startTarget: 1000 }}
+>
+	{#snippet template(args)}
+		<Frame palette={args.palette} third={args.third} {intro}>
+			<Converge {...args} />
+		</Frame>
+	{/snippet}
+</Story>
+<Story
+	name="G · 3 Four colours, bars"
+	exportName="Converge3Bars"
+	args={{ startStage: 2, startTarget: 1000, multiDisplay: 'bars' }}
+>
+	{#snippet template(args)}
+		<Frame palette={args.palette} third={args.third} {intro}>
+			<Converge {...args} />
+		</Frame>
+	{/snippet}
+</Story>
+<Story
+	name="G · 3 Four colours, markers"
+	exportName="Converge3Markers"
+	args={{ startStage: 2, startTarget: 1000, multiDisplay: 'markers' }}
+>
+	{#snippet template(args)}
+		<Frame palette={args.palette} third={args.third} {intro}>
+			<Converge {...args} />
+		</Frame>
+	{/snippet}
+</Story>
+<Story
+	name="G · 3 Four colours, 20 counts"
+	exportName="Converge3Runs"
+	args={{ startStage: 2, startTarget: 1000, startRuns: true }}
+>
+	{#snippet template(args)}
+		<Frame palette={args.palette} third={args.third} {intro}>
 			<Converge {...args} />
 		</Frame>
 	{/snippet}

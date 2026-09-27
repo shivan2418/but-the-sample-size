@@ -6,9 +6,21 @@
 
 	let {
 		palette = 'redBlue',
+		third = 'yellow',
 		intro,
 		children
-	}: { palette?: PaletteKey; intro: string; children: Snippet } = $props();
+	}: {
+		palette?: PaletteKey;
+		/** Colour of the third-party marbles in the four-colour jar. */
+		third?: 'yellow' | 'purple';
+		intro: string;
+		children: Snippet;
+	} = $props();
+
+	const thirds = {
+		yellow: { l: '#DDA700', d: '#F2C230' },
+		purple: { l: '#8E44AD', d: '#B37FD6' }
+	};
 
 	const pal = $derived(palettes[palette]);
 </script>
@@ -19,6 +31,8 @@
 	style:--a-d={pal.a.dark}
 	style:--b-l={pal.b.light}
 	style:--b-d={pal.b.dark}
+	style:--t-l={thirds[third].l}
+	style:--t-d={thirds[third].d}
 >
 	<div class="page">
 		<div class="proto">Prototype, throwaway. Nothing here is final copy.</div>
@@ -49,6 +63,8 @@
 		--note-ink: #5b4a00;
 		--a: var(--a-l);
 		--b: var(--b-l);
+		--grey: #9aa3af;
+		--third: var(--t-l);
 		--serif: Georgia, 'Times New Roman', serif;
 		--sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
 		--mono: ui-monospace, Menlo, Consolas, monospace;
@@ -73,6 +89,8 @@
 			--note-ink: #e9d98a;
 			--a: var(--a-d);
 			--b: var(--b-d);
+			--grey: #6b7482;
+			--third: var(--t-d);
 		}
 	}
 	.frame :global(*) {
