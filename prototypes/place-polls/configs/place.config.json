@@ -1,0 +1,2 @@
+{"formatVersion":0,"collection":"residents","input":{"path":"residents.ndjson"},"output":"public/blockdb","clientOut":"src/blockdb","blockBytes":65536,"compression":"gzip",
+ "schema":{"sortField":"k","pk":"k","fields":{"k":{"kind":"number"},"f":{"kind":"number"},"l":{"kind":"number"},"addr":{"kind":"number"},"age":{"kind":"number"},"race":{"kind":"string","values":["A","B","I","M","O","P","U","W"]},"party":{"kind":"string","values":["DEM","GRE","JFA","LIB","NLB","REP","UNA"]},"vote":{"kind":"string","values":["D","N","O","R"]}}}}
