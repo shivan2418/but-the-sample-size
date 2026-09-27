@@ -79,14 +79,18 @@
 	{/snippet}
 </Story>
 
-<Story name="G · Converge" exportName="Converge" args={{ startWith: 0 }}>
+<Story name="G · Converge" exportName="Converge" args={{ startWith: 0, startTarget: 100 }}>
 	{#snippet template(args)}
 		<Frame palette={args.palette} {intro}>
 			<Converge {...args} />
 		</Frame>
 	{/snippet}
 </Story>
-<Story name="G · Converge, 40 counted" exportName="Converge40" args={{ startWith: 40 }}>
+<Story
+	name="G · Converge, 40 counted"
+	exportName="Converge40"
+	args={{ startWith: 40, startTarget: 1000 }}
+>
 	{#snippet template(args)}
 		<Frame palette={args.palette} {intro}>
 			<Converge {...args} />

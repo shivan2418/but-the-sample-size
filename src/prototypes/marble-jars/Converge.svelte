@@ -21,12 +21,15 @@
 	let {
 		speed = 1,
 		palette = 'redBlue',
-		startWith = 0
+		startWith = 0,
+		startTarget = 100
 	}: {
 		speed?: number;
 		palette?: PaletteKey;
 		/** Marbles already counted when the story opens. */
 		startWith?: number;
+		/** How many marbles the reader plans to take out: the pile is sized for this from the start. */
+		startTarget?: number;
 	} = $props();
 
 	const A = $derived(palettes[palette].a.name);
@@ -63,6 +66,9 @@
 	let auto = $state(false),
 		counted = $state(0),
 		red = $state(0);
+	// Start value only: the story sets it once, the reader changes it after.
+	// svelte-ignore state_referenced_locally
+	let target = $state(startTarget);
 	let canvas: HTMLCanvasElement | undefined = $state();
 	let raf = 0,
 		nextAt = 0;
@@ -73,6 +79,16 @@
 	/** Time between marbles: slow enough to follow one by one at first, then faster and faster. */
 	const gap = (k: number) => Math.max(8, 650 * Math.pow(0.93, k)) * speed;
 	const flight = (k: number) => Math.max(180, 600 * Math.pow(0.97, k)) * speed;
+
+	/** The biggest marble size (capped) at which `n` marbles fit in a `w` × `h` box. */
+	function gridFor(n: number, w: number, h: number) {
+		let best = { cols: 1, size: 0 };
+		for (let cols = 1; cols <= n; cols++) {
+			const size = Math.min(w / cols, h / Math.ceil(n / cols));
+			if (size > best.size) best = { cols, size };
+		}
+		return { cols: best.cols, size: Math.min(22, best.size) };
+	}
 
 	function launch(now: number) {
 		if (taken >= SMALL) return;
@@ -93,6 +109,7 @@
 		kick();
 	}
 	function toggleAuto() {
+		if (!auto && counted >= target) putBack();
 		auto = !auto;
 		nextAt = performance.now();
 		kick();
@@ -115,11 +132,11 @@
 		const c = canvas;
 		if (!c) return;
 		if (auto) {
-			while (now >= nextAt && taken < SMALL) {
+			while (now >= nextAt && taken < Math.min(target, SMALL)) {
 				launch(now);
 				nextAt += gap(taken);
 			}
-			if (taken >= SMALL) auto = false;
+			if (taken >= Math.min(target, SMALL)) auto = false;
 		}
 		// land in the order they left, so each marble keeps its slot
 		while (flying.length && now - flying[0].t0 >= flying[0].dur) land(flying.shift()!.m);
@@ -152,13 +169,12 @@
 		g.textBaseline = 'top';
 		g.fillText(`${fmt(SMALL - taken)} left`, jx + JW / 2, TOP + JH + 6);
 
-		// where they land, on the left: the grid shrinks to fit everything counted
+		// where they land, on the left: the grid is sized up front for the planned sample, so the
+		// marbles never have to shrink mid-count (only if the reader takes more than planned)
 		const lw = jx - 16,
 			lh = JH * 0.93,
 			ly = TOP + JH * 0.07,
-			total = Math.max(10, landed.length + flying.length),
-			cols = Math.max(5, Math.ceil(Math.sqrt((total * lw) / lh))),
-			size = Math.min(22, lw / cols),
+			{ cols, size } = gridFor(Math.max(target, landed.length + flying.length), lw, lh),
 			slot = (i: number): [number, number, number] => [
 				((i % cols) + 0.5) * size,
 				ly + lh - (Math.floor(i / cols) + 0.5) * size,
@@ -306,9 +322,15 @@
 			Nothing counted yet.
 		{/if}
 	</div>
+	<div class="row" role="group" aria-label="How many to take out">
+		<span class="eyebrow">Take out</span>
+		{#each [10, 50, 100, 250, 1000] as t (t)}
+			<button aria-pressed={target === t} onclick={() => ((target = t), kick())}>{fmt(t)}</button>
+		{/each}
+	</div>
 	<div class="row">
-		<button class="primary" onclick={toggleAuto} disabled={counted >= SMALL}>
-			{auto ? 'Pause' : counted ? 'Keep going' : 'Start'}
+		<button class="primary" onclick={toggleAuto}>
+			{auto ? 'Pause' : counted >= target ? 'Again' : counted ? 'Keep going' : 'Start'}
 		</button>
 		<button onclick={takeOne} disabled={auto || counted >= SMALL}>Take one out</button>
 		<button onclick={putBack} disabled={!counted && !auto}>Put them back</button>
