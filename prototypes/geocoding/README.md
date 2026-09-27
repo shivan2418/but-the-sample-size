@@ -14,7 +14,7 @@ Every intermediate file is written to `$DATA`. Names, phone numbers and mailing 
 ```sh
 ./01_extract_voters.sh                                    # UTF-16 snapshot -> snapshot_cols.tsv (~20 s)
 ./01b_fetch_addressnc.sh                                  # optional: full AddressNC, Sept 2024 (745 MB)
-uv run --with duckdb python 02_sources.py                 # sources.parquet, 14.4M points (~1 min)
+uv run --with duckdb python 02_sources.py                 # sources.parquet, 14.4M points (20.4M with AddressNC)
 uv run --with duckdb python 03_residents.py               # residents.parquet, 7,854,102 rows (~1 min)
 uv run --with duckdb python 04_match.py                   # addr_match / residents_geo.parquet (~1 min)
 uv run --with duckdb --with requests python 05_census.py  # 5 Census batches of 10,000 (~4 min, network)
