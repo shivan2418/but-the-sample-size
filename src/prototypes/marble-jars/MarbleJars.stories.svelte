@@ -6,6 +6,7 @@
 	import SideJar from './SideJar.svelte';
 	import Pour from './Pour.svelte';
 	import TwentyHands from './TwentyHands.svelte';
+	import Converge from './Converge.svelte';
 
 	const { Story } = defineMeta({
 		title: 'Prototypes/marble-jars',
@@ -74,6 +75,21 @@
 	{#snippet template(args)}
 		<Frame palette={args.palette} {intro}>
 			<TwentyHands {...args} />
+		</Frame>
+	{/snippet}
+</Story>
+
+<Story name="G · Converge" exportName="Converge" args={{ startWith: 0 }}>
+	{#snippet template(args)}
+		<Frame palette={args.palette} {intro}>
+			<Converge {...args} />
+		</Frame>
+	{/snippet}
+</Story>
+<Story name="G · Converge, 40 counted" exportName="Converge40" args={{ startWith: 40 }}>
+	{#snippet template(args)}
+		<Frame palette={args.palette} {intro}>
+			<Converge {...args} />
 		</Frame>
 	{/snippet}
 </Story>
