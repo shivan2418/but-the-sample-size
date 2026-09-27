@@ -2,8 +2,10 @@
 <!--
   PROTOTYPE, throwaway. Answers "How the marble jars look and behave"
   (https://github.com/shivan2418/but-the-sample-size/issues/12).
-  Three structurally different variants of the marble rung's widget, set inside a mock of the explainer page.
-  Switch with the bar at the bottom, the arrow keys, or #A / #B / #C in the URL.
+  Variants of the marble rung's widget, set inside a mock of the explainer page.
+  Switch with the bar at the bottom, the arrow keys, or #D / #A / #B / #C in the URL.
+  D: Tactile to abstract (default; the map owner's direction): one jar, marbles drop one by one, then 10 and 100
+     sped up, each handful collapses into a dot, then a zoom out to a jar 10x as tall (1,000x the marbles), then free play
   A: Twin jars (free play, jars drawn at the same size, one dot plot per jar, every size you try keeps a lane)
   B: One plot (jars drawn to scale, a live slider, both jars mirrored on one dot plot, explicit "pin")
   C: Guided steps (a walkthrough of fixed steps, then free play; histograms; the big jar is 1,000 small jars)
@@ -62,6 +64,7 @@ input[type=range]{width:100%;accent-color:var(--ink)}
 .r{color:var(--red)} .b{color:var(--blue)}
 .moe{font:14px/1.45 var(--sans);border-left:3px solid var(--ink);padding-left:10px}
 .moe b{font-family:var(--mono);font-weight:500}
+.moe strong{font-weight:600}
 details{font-size:13px;color:var(--muted)}
 details summary{cursor:pointer;font-weight:500;color:var(--ink)}
 .log{max-height:180px;overflow:auto;font:12px/1.6 var(--mono);margin-top:6px}
@@ -81,7 +84,7 @@ td.num,th.num{text-align:right}
 </style>
 
 <div class="page">
-  <div class="proto">Prototype, throwaway. Three takes on the marble rung for <em>How the marble jars look and behave</em>. Flip between them with the black bar at the bottom. Nothing here is final copy.</div>
+  <div class="proto">Prototype, throwaway. D is the new take (tactile first, then more abstract). A–C are the first round, kept for comparison. Flip between them with the black bar at the bottom. Nothing here is final copy.</div>
   <div class="site">But the sample size</div>
   <div class="objection">
     <div class="who">A comment you've probably seen</div>
@@ -207,7 +210,7 @@ const A = {
       <div class="small">Each dot is one handful. Each size you try keeps its own row, newest on top.</div>
       <div class="small"><b>Small jar</b></div><canvas id="aPlotS"></canvas><div class="moe" id="aMoeS"></div>
       <div class="small"><b>Big jar</b></div><canvas id="aPlotB"></canvas><div class="moe" id="aMoeB"></div>
-      <div class="small">The ± number is what news reports call the <b>margin of error</b>.</div>
+      <div class="small">The ± number is what news reports call the <strong>margin of error</strong>.</div>
     </div>
     <details><summary>Every handful so far</summary><div class="log" id="aLog"></div></details>
   </div>`,
@@ -420,7 +423,7 @@ const C = {
     const H = k => s.hist[k] || [];
     if (s.step === 1) this.hist($('cHist'), [{ label: 'Handfuls of 10', vals: H('small:10'), color: ink }]);
     if (s.step === 2) { this.hist($('cHist'), [{ label: 'Handfuls of 10', vals: H('small:10'), color: pin }, { label: 'Handfuls of 200', vals: H('small:200'), color: ink }]);
-      $('cMoe').innerHTML = `95% of handfuls of 10 land within <b>±${fmtMoe(moe(10, SMALL))}</b> points of 55%. Handfuls of 200: within <b>±${fmtMoe(moe(200, SMALL))}</b>. Pollsters call this number the <b>margin of error</b>.`; }
+      $('cMoe').innerHTML = `95% of handfuls of 10 land within <b>±${fmtMoe(moe(10, SMALL))}</b> points of 55%. Handfuls of 200: within <b>±${fmtMoe(moe(200, SMALL))}</b>. Pollsters call this number the <strong>margin of error</strong>.`; }
     if (s.step === 3) { this.hist($('cHist'), [{ label: 'Small jar, 200', vals: H('small:200'), color: ink }, { label: 'Big jar, 200', vals: H('big:200'), color: ink }]);
       $('cMoe').innerHTML = `Margin of error for 200: small jar <b>±${fmtMoe(moe(200, SMALL))}</b>, big jar <b>±${fmtMoe(moe(200, BIG))}</b>. A jar 1,000 times bigger, and the handful is barely less accurate.`; }
     if (s.step === 4) { this.hist($('cHist'), [{ label: 'Small jar, 1,000', vals: H('small:1000'), color: ink }, { label: 'Big jar, 1,000', vals: H('big:1000'), color: ink }]);
@@ -432,9 +435,246 @@ const C = {
   }
 };
 
+// ---------- variant D: Tactile to abstract (the map owner's direction) ----------
+const D = (() => {
+  const JW = 220, JH = 250, TOP = 12, R0 = 3.0, JAR_BOTTOM = TOP + JH, TRAY_Y = 284, TRAY_H = 80, PLOT_Y = 382, LANE = 34, LANES = 4, H = PLOT_Y + LANES * LANE + 26;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches, SPEED = reduce ? 0.05 : 1;
+  // pile positions relative to the small jar's top-left, at full (s = 10) scale
+  const Ppos = (() => { const d = 2 * R0 + 0.9, pts = [], pad = 8; let seed = 5; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    for (let row = 0; pts.length < SMALL; row++) { const y = JH - 6 - R0 - row * d * 0.866, off = row % 2 ? d / 2 : 0;
+      for (let x = pad + R0 + off; x <= JW - pad - R0 && pts.length < SMALL; x += d) pts.push([x + (rnd() - .5) * 1.2, y + (rnd() - .5) * 1.2]); }
+    return pts; })();
+  const rank = (() => { const order = Array.from({ length: SMALL }, (_, i) => i).sort((a, b) => jar[b] - jar[a] || a - b), r = new Array(SMALL); order.forEach((m, pos) => { r[m] = pos; }); return r; })();
+  let grain = null;
+  const st = { step: 0, s: 10, sortE: 0, revealed: false, busy: false, lanes: [], tray: [], trayN: 10, trayA: 1, bar: null, tally: null, out: new Uint8Array(SMALL), wasOut: new Uint8Array(SMALL), refill: 1, n: 100, W: 0 };
+  let anims = [], raf = 0;
+  const kick = () => { if (!raf) raf = requestAnimationFrame(frame); };
+  const anim = (delay, dur, a) => { anims.push({ ...a, t0: performance.now() + delay * SPEED, dur: Math.max(1, dur * SPEED), started: false }); kick(); };
+  const ease = p => (p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2);
+  const $ = id => document.getElementById(id);
+
+  function layout(W) {
+    const B1 = { x: (W - JW - 14 - JW / 10) / 2, y: TOP, w: JW, h: JH }, S1 = { x: B1.x + JW + 14, y: TOP + JH - JH / 10, w: JW / 10, h: JH / 10 }, S0 = { x: (W - JW) / 2, y: TOP };
+    const t0x = S0.x - 10 * S1.x, t0y = S0.y - 10 * S1.y, k = (st.s - 1) / 9;
+    const cam = { s: st.s, tx: t0x * k, ty: t0y * k };
+    const scr = (wx, wy) => [wx * cam.s + cam.tx, wy * cam.s + cam.ty];
+    return { B1, S1, cam, scr };
+  }
+  const marbleWorld = (L, i) => { const a = Ppos[i], b = Ppos[rank[i]], e = st.sortE; return [L.S1.x + (a[0] + (b[0] - a[0]) * e) / 10, L.S1.y + (a[1] + (b[1] - a[1]) * e) / 10]; };
+  function trayLayout(n, W) {
+    const tw = Math.min(W - 24, 330), tx = (W - tw) / 2, cols = n <= 10 ? 10 : 20, size = n <= 10 ? Math.min(28, tw / 10) : Math.min(15, tw / 20);
+    const rows = Math.ceil(Math.min(n, 100) / cols), gx = tx + (tw - cols * size) / 2, gy = TRAY_Y + (TRAY_H - rows * size) / 2;
+    return { tx, tw, slot: i => [gx + (i % cols + .5) * size, gy + (Math.floor(i / cols) + .5) * size, size / 2 - 1.2] };
+  }
+  const plotX = W => { const x0 = 64, x1 = W - 18; return v => x0 + (x1 - x0) * v / 100; };
+  const dotR = W => { const x = plotX(W); return Math.max(1.8, (x(2) - x(0)) / 2 - .3); };
+  const shownLanes = () => st.lanes.slice(-LANES);
+  function laneFor(jarKey, n) { let l = st.lanes.find(l => l.jar === jarKey && l.n === n); if (!l) { l = { jar: jarKey, n, vals: [], pending: {} }; st.lanes.push(l); } return l; }
+  function dotTarget(l, v, W) {
+    const i = shownLanes().indexOf(l), x = plotX(W), r = dotR(W), b = Math.round((v - 55) / 2);
+    const k = l.vals.filter(u => Math.round((u - 55) / 2) === b).length + (l.pending[b] || 0);
+    l.pending[b] = (l.pending[b] || 0) + 1;
+    return { b, xy: [x(Math.max(0, Math.min(100, 55 + b * 2))), PLOT_Y + (i + 1) * LANE - 4 - (r + 1 + k * (2 * r + .6))] };
+  }
+  const land = (l, v, b) => { l.vals.push(v); l.pending[b]--; };
+  const circle = (g, x, y, r, col, alpha = 1) => { g.globalAlpha = alpha; g.beginPath(); g.arc(x, y, Math.max(.4, r), 0, 7); g.fillStyle = col; g.fill(); g.globalAlpha = 1; };
+  const col = c => (c ? tok('--red') : tok('--blue'));
+  function jarPath(g, x, y, w, h) { g.beginPath(); g.roundRect(x + w * .28, y, w * .44, h * .07, w * .02); g.roundRect(x, y + h * .07, w, h * .93, w * .08); }
+  function makeGrain() {
+    const c = document.createElement('canvas'), k = 3; c.width = JW * k; c.height = JH * k; const g = c.getContext('2d'); g.scale(k, k);
+    g.save(); g.beginPath(); g.roundRect(3, JH * .07 + 3, JW - 6, JH * .93 - 6, JW * .08); g.clip();
+    let seed = 9; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647); const red = tok('--red'), blue = tok('--blue');
+    for (let i = 0; i < 90000; i++) { g.fillStyle = rnd() < P ? red : blue; g.fillRect(rnd() * JW, JH * .07 + 10 + rnd() * (JH * .93), .55, .55); }
+    g.restore(); grain = c;
+  }
+
+  function frame(now) {
+    raf = 0; const c = $('dCanvas'); if (!c) { anims = []; return; }
+    const dpr = window.devicePixelRatio || 1, W = c.clientWidth || 340, Hc = st.step === 0 && !st.lanes.length ? TRAY_Y + TRAY_H + 6 : H;
+    if (st.W !== W || c.height !== Math.round(Hc * dpr)) { st.W = W; c.width = Math.round(W * dpr); c.height = Math.round(Hc * dpr); c.style.height = Hc + 'px'; }
+    const live = [];
+    for (const a of anims.slice()) { const p = (now - a.t0) / a.dur; if (p < 0) continue; if (!a.started) { a.started = true; a.start && a.start(); }
+      if (p >= 1) { a.step && a.step(1); anims.splice(anims.indexOf(a), 1); a.done && a.done(); } else { a.step && a.step(p); if (a.draw) live.push([a, p]); } }
+    const g = c.getContext('2d'), L = layout(W); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, Hc);
+    // jars, under the camera
+    g.save(); g.beginPath(); g.rect(0, 0, W, JAR_BOTTOM + 2); g.clip();
+    g.setTransform(dpr * L.cam.s, 0, 0, dpr * L.cam.s, dpr * L.cam.tx, dpr * L.cam.ty);
+    const lw = 1.5 / L.cam.s;
+    if (st.s < 9.99 || st.step >= 3) { if (!grain) makeGrain(); const B = L.B1; g.fillStyle = tok('--glass'); jarPath(g, B.x, B.y, B.w, B.h); g.fill(); g.drawImage(grain, B.x, B.y, B.w, B.h); g.strokeStyle = tok('--line'); g.lineWidth = lw; jarPath(g, B.x, B.y, B.w, B.h); g.stroke(); }
+    const S = L.S1; g.fillStyle = tok('--glass'); jarPath(g, S.x, S.y, S.w, S.h); g.fill(); g.strokeStyle = tok('--line'); g.lineWidth = lw; jarPath(g, S.x, S.y, S.w, S.h); g.stroke();
+    const red = tok('--red'), blue = tok('--blue'), rW = R0 / 10;
+    for (let i = 0; i < SMALL; i++) { if (st.out[i]) continue; const [x, y] = marbleWorld(L, i); circle(g, x, y, rW, jar[i] ? red : blue, st.wasOut[i] ? st.refill : 1); }
+    g.restore(); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // jar labels
+    g.fillStyle = tok('--muted'); g.font = '12px ' + tok('--mono'); g.textAlign = 'center'; g.textBaseline = 'top';
+    if (st.s > 9.9) g.fillText('1,000 marbles', W / 2, JAR_BOTTOM + 6);
+    else { const [sx] = L.scr(L.S1.x + L.S1.w / 2, 0), [bx] = L.scr(L.B1.x + L.B1.w / 2, 0); g.globalAlpha = Math.min(1, (9.9 - st.s) / 4); g.fillText('1,000', sx, JAR_BOTTOM + 6); g.fillText('1,000,000 marbles', bx, JAR_BOTTOM + 6); g.globalAlpha = 1; }
+    // tray
+    const T = trayLayout(st.trayN, W); g.fillStyle = tok('--glass'); g.beginPath(); g.roundRect(T.tx, TRAY_Y, T.tw, TRAY_H, 10); g.fill();
+    if (st.bar) { const bw = T.tw - 32, by = TRAY_Y + TRAY_H / 2 - 9, got = Math.max(1, st.bar.got); g.globalAlpha = st.trayA;
+      g.fillStyle = tok('--dim'); g.fillRect(T.tx + 16, by, bw, 18); const f = st.bar.got / st.bar.n;
+      g.fillStyle = red; g.fillRect(T.tx + 16, by, bw * f * st.bar.red / got, 18); g.fillStyle = blue; g.fillRect(T.tx + 16 + bw * f * st.bar.red / got, by, bw * f * (1 - st.bar.red / got), 18); g.globalAlpha = 1; }
+    else for (const m of st.tray) { const [x, y, r] = T.slot(m.slot); circle(g, x, y, r, col(m.c), st.trayA); }
+    if (!st.tray.length && !st.bar && !live.length) { g.fillStyle = tok('--muted'); g.font = '12px ' + tok('--sans'); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('Your handful lands here', W / 2, TRAY_Y + TRAY_H / 2); }
+    // plot
+    const x = plotX(W), r = dotR(W), lanes = shownLanes();
+    if (lanes.length || st.step >= 1) {
+      g.fillStyle = tok('--muted'); g.font = '600 11px ' + tok('--sans'); g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText('EACH DOT IS ONE HANDFUL: % RED', 0, PLOT_Y - 14);
+      if (st.revealed) trueLine(g, x, PLOT_Y, PLOT_Y + LANES * LANE, 'true 55%');
+      lanes.forEach((l, i) => { const base = PLOT_Y + (i + 1) * LANE - 4;
+        g.fillStyle = tok('--muted'); g.font = '11px ' + tok('--mono'); g.textAlign = 'right'; g.textBaseline = 'alphabetic';
+        g.fillText((st.step >= 3 || st.s < 10 ? (l.jar === 'big' ? 'big ' : 'small ') : '') + (l.n >= 1000 ? l.n / 1000 + 'k' : l.n), 58, base);
+        dots(g, l.vals, { x, y: base, r, bin: 2, color: tok('--ink'), maxH: LANE - 4 }); });
+      axis(g, x, PLOT_Y + LANES * LANE, 64, W - 18);
+    }
+    for (const [a, p] of live) a.draw(g, p, L, T);
+    if (anims.length) kick();
+  }
+
+  function setTally(t) { st.tally = t; const el = $('dTally'); if (!el) return;
+    if (!t) { el.innerHTML = '&nbsp;'; return; }
+    const pct = t.got ? (t.red / t.got * 100).toFixed(0) + '% red' : '';
+    el.innerHTML = `${t.got < t.n ? 'Counting' : 'Handful'} of ${fmt(t.n)}${st.step >= 3 ? ` from the ${t.jar} jar` : ''}: <b class="num">${fmt(t.got)}</b> counted · <b class="r">${fmt(t.red)}</b> red · <b class="b">${fmt(t.got - t.red)}</b> blue${pct ? ` · <b>${pct}</b>` : ''}`; }
+
+  function putBack(after) {
+    anim(0, 300, { step: p => { st.trayA = 1 - p; }, done: () => {
+      st.tray = []; st.bar = null; st.trayA = 1; st.wasOut.set(st.out); st.out.fill(0); st.refill = 0;
+      anim(0, 350, { step: p => { st.refill = p; }, done: () => { st.wasOut.fill(0); st.refill = 1; after && after(); } }); } });
+  }
+  function flyMarble(delay, dur, from, mouth, slot, r0, c, onStart, onLand) {
+    let sx, sy; const mx = mouth[0], my = mouth[1] - 16;
+    anim(delay, dur, { start() { [sx, sy] = from(); onStart && onStart(); },
+      draw(g, p) { let x, y; if (p < .4) { const e = 1 - Math.pow(1 - p / .4, 2); x = sx + (mx - sx) * e; y = sy + (my - sy) * e; }
+        else { const q = (p - .4) / .6; x = mx + (slot[0] - mx) * q; y = my + (slot[1] - my) * q * q; }
+        circle(g, x, y, r0 + (slot[2] - r0) * p, col(c)); }, done: onLand });
+  }
+  function flyDot(delay, dur, from, l, v, onLand) {
+    const { b, xy } = dotTarget(l, v, st.W);
+    anim(delay, dur, { draw(g, p) { const e = ease(p); circle(g, from[0] + (xy[0] - from[0]) * e, from[1] + (xy[1] - from[1]) * e - Math.sin(Math.PI * p) * 40, dotR(st.W) + 3 * (1 - p), tok('--ink')); },
+      done() { land(l, v, b); onLand && onLand(); } });
+  }
+  const mouthOf = (L, jarKey) => { const R = jarKey === 'big' ? L.B1 : L.S1; return L.scr(R.x + R.w / 2, R.y); };
+
+  // one handful: marbles fly for n <= 100, a counting bar above that; then it becomes a dot
+  function handful(jarKey, n, { gap, dur }) {
+    if (st.busy) return; st.busy = true; ui();
+    const L = layout(st.W), T = trayLayout(n, st.W); st.trayN = n; st.tray = []; st.bar = null;
+    let res, colors, starts;
+    if (jarKey === 'small') { res = drawSmall(n); n = res.n; colors = res.picked.map(i => jar[i]); }
+    else { res = drawBig(n); colors = shuffle(Array.from({ length: n }, (_, i) => (i < res.red ? 1 : 0))); }
+    const t = { jar: jarKey, n, got: 0, red: 0 }; setTally(t);
+    const finish = () => { const l = laneFor(jarKey, n);
+      anim(350, 300, { step: p => { st.trayA = 1 - p; } });
+      flyDot(350, 650, [st.W / 2, TRAY_Y + TRAY_H / 2], l, res.pct, () => { putBack(() => { st.busy = false; ui(); }); }); };
+    if (n <= 100) {
+      colors.forEach((c, k) => {
+        const from = jarKey === 'small' ? (() => { const i = res.picked[k]; return () => { const L2 = layout(st.W); return L2.scr(...marbleWorld(L2, i)); }; })()
+          : () => { const L2 = layout(st.W), B = L2.B1; return L2.scr(B.x + 8 + Math.random() * (B.w - 16), B.y + B.h * .3 + Math.random() * B.h * .65); };
+        flyMarble(k * gap, dur, from, mouthOf(L, jarKey), T.slot(k), R0 * L.cam.s / 10, c,
+          () => { if (jarKey === 'small') st.out[res.picked[k]] = 1; },
+          () => { st.tray.push({ c, slot: k }); t.got++; t.red += c; setTally(t); if (t.got === n) finish(); });
+      });
+    } else {
+      st.bar = { n, got: 0, red: 0 };
+      if (jarKey === 'small') anim(0, 1, { done: () => { for (const i of res.picked) st.out[i] = 1; } });
+      anim(0, 1100, { step: p => { st.bar.got = Math.round(p * n); st.bar.red = Math.round(p * res.red); t.got = st.bar.got; t.red = st.bar.red; setTally(t); }, done: finish });
+    }
+  }
+  function twenty(jars, n) {
+    if (st.busy) return; st.busy = true; ui(); setTally(null);
+    const L = layout(st.W); let left = 20 * jars.length;
+    jars.forEach((jarKey, j) => { const l = laneFor(jarKey, jarKey === 'small' ? Math.min(n, SMALL) : n);
+      for (let k = 0; k < 20; k++) { const res = jarKey === 'small' ? drawSmall(n) : drawBig(n);
+        flyDot((k * jars.length + j) * 70, 600, mouthOf(L, jarKey), l, res.pct, () => { if (--left === 0) { st.busy = false; ui(); } }); } });
+  }
+  function drawOne() { // step 1: one marble at a time, slowly
+    if (st.busy || st.tray.length >= 10) return; st.busy = true; ui();
+    const L = layout(st.W), T = trayLayout(10, st.W); st.trayN = 10;
+    const inJar = []; for (let i = 0; i < SMALL; i++) if (!st.out[i]) inJar.push(i);
+    const i = inJar[Math.floor(Math.random() * inJar.length)], k = st.tray.length;
+    const t = st.tally || { jar: 'small', n: 10, got: 0, red: 0 };
+    flyMarble(0, 1300, () => { const L2 = layout(st.W); return L2.scr(...marbleWorld(L2, i)); }, mouthOf(L, 'small'), T.slot(k), R0, jar[i],
+      () => { st.out[i] = 1; }, () => { st.tray.push({ c: jar[i], slot: k }); t.got++; t.red += jar[i]; setTally(t); st.busy = false; ui(); });
+  }
+  function sortJar() { if (st.busy) return; st.busy = true; ui(); const from = st.sortE, to = from > .5 ? 0 : 1;
+    anim(0, 1400, { step: p => { st.sortE = from + (to - from) * ease(p); }, done: () => { if (to === 1) st.revealed = true; st.busy = false; ui(); } }); }
+  function zoom(to) { st.busy = true; ui(); const from = st.s;
+    anim(0, 1900, { step: p => { const e = ease(p); st.s = Math.pow(10, Math.log10(from) + (Math.log10(to) - Math.log10(from)) * e); }, done: () => { st.busy = false; ui(); } }); }
+
+  const steps = [
+    { t: 'One jar', body: 'This jar holds 1,000 marbles, some red and some blue. You can’t tell how many of each by looking. Take one out.' },
+    { t: 'Grab 10 at a time', body: 'Now grab a handful of 10. Once it’s counted, the handful becomes one dot on the chart: how red it was. Grab a few and see where the dots land.' },
+    { t: 'Grab 100 at a time', body: 'Bigger handfuls take longer to count, so this speeds up. Watch the dots for 100 bunch up more tightly than the dots for 10.' },
+    { t: 'A jar 1,000 times bigger', body: 'This jar is 10 times as tall, 10 times as wide and 10 times as deep, so it holds 1,000 times as many marbles: a million, mixed the same way. Grab 100 from it.' },
+    { t: 'Your turn', body: 'Pick any handful size and grab from either jar.' },
+  ];
+  const btn = (id, label, primary) => `<button id="${id}"${primary ? ' class="primary"' : ''}>${label}</button>`;
+  function controls() {
+    switch (st.step) {
+      case 0: return btn('dOne', 'Take out a marble', 1) + btn('dBack1', 'Put them back');
+      case 1: return btn('d10', 'Grab 10', 1) + btn('dSort', 'Count the jar');
+      case 2: return btn('d100', 'Grab 100', 1) + btn('d100x', 'Grab 100, twenty times') + btn('dSort', 'Count the jar');
+      case 3: return btn('dBig', 'Grab 100 from the big jar', 1) + btn('dBothx', 'Twenty from each jar');
+      case 4: return `<div class="row" style="width:100%"><label class="eyebrow" for="dN">Handful</label><input id="dN" type="number" min="1" max="1000000" inputmode="numeric" value="${st.n}">${[10, 100, 1000, 12000].map(v => `<button data-dn="${v}">${fmt(v)}</button>`).join('')}</div>`
+        + btn('dS', 'From the small jar', 1) + btn('dB', 'From the big jar') + btn('dX', 'Twenty from each');
+    }
+  }
+  function ui() {
+    const b = st.busy, set = (id, dis) => { const e = $(id); if (e) e.disabled = dis; };
+    set('dOne', b || st.tray.length >= 10); set('dBack1', b || !st.tray.length); set('d10', b); set('d100', b); set('d100x', b); set('dBig', b); set('dBothx', b); set('dS', b); set('dB', b); set('dX', b);
+    set('dSort', b); if ($('dSort')) $('dSort').textContent = st.sortE > .5 ? 'Mix them up again' : 'Count the jar';
+    set('dPrev', b || st.step === 0); set('dNext', b || st.step === steps.length - 1);
+    const l = (j, n) => st.lanes.find(x => x.jar === j && x.n === n), pct = $('dPct'), m = $('dMoe'); let moeTxt = '';
+    if (st.step === 0) pct.textContent = st.tray.length === 10 ? 'That’s a handful of 10. Put them back and move on to the next step.' : `One marble is 0.1% of the jar.`;
+    if (st.step === 1) { pct.textContent = 'A handful of 10 is 1% of the jar.'; const v = (l('small', 10) || {}).vals || [];
+      if (v.length >= 4) moeTxt = `Your handfuls of 10 ranged from <b>${Math.min(...v).toFixed(0)}%</b> to <b>${Math.max(...v).toFixed(0)}%</b> red.${st.revealed ? ' The jar is really 55% red.' : ' Count the jar to see the real mix.'}`; }
+    if (st.step === 2) { pct.textContent = 'A handful of 100 is 10% of the jar.'; const v = (l('small', 100) || {}).vals || [];
+      if (v.length) moeTxt = `95% of handfuls of 100 land within <b>±${fmtMoe(moe(100, SMALL))} points</b> of the true 55%. Pollsters call that the <strong>margin of error</strong>. <span class="small">${within(v, moe(100, SMALL))} of your ${v.length} did.</span>`; }
+    if (st.step === 3) { pct.textContent = 'A handful of 100 is 10% of the small jar and 0.01% of the big one.'; const v = (l('big', 100) || {}).vals || [];
+      if (v.length) moeTxt = `Margin of error for 100: small jar <b>±${fmtMoe(moe(100, SMALL))}</b>, big jar <b>±${fmtMoe(moe(100, BIG))}</b>. A thousand times the marbles, and the handful is almost exactly as good.`; }
+    if (st.step === 4) { const nS = Math.min(st.n, SMALL); pct.textContent = `${fmt(st.n)} is ${st.n >= SMALL ? 'all' : pctOf(st.n, SMALL)} of the small jar and ${pctOf(st.n, BIG)} of the big one.`;
+      moeTxt = `Margin of error for ${fmt(st.n)}: small jar <b>±${fmtMoe(moe(nS, SMALL))}</b>${nS === SMALL ? ' (you counted every marble)' : ''}, big jar <b>±${fmtMoe(moe(st.n, BIG))}</b>.`; }
+    m.innerHTML = moeTxt; m.hidden = !moeTxt;
+  }
+  function go(to) {
+    if (st.busy) return; const from = st.step; st.step = to;
+    if (from === 0 && st.tray.length) { st.tray = []; st.out.fill(0); setTally(null); }
+    if (to >= 2) st.revealed = true;
+    mount();
+    if (from === 2 && to === 3) zoom(1); if (from === 3 && to === 2) zoom(10);
+  }
+  return {
+    name: 'Tactile to abstract',
+    html: () => { const s = steps[st.step]; return `<div class="widget">
+      <div class="steps">${steps.map((_, i) => `<span class="${i <= st.step ? 'on' : ''}"></span>`).join('')}</div>
+      <div class="eyebrow">Step ${st.step + 1} of ${steps.length}</div>
+      <h2>${s.t}</h2><p class="lede">${s.body}</p>
+      <canvas id="dCanvas" role="img" aria-label="A jar of marbles, a tray for the handful, and a chart of every handful"></canvas>
+      <div class="tally" id="dTally" aria-live="polite">&nbsp;</div>
+      <div class="row">${controls()}</div>
+      <div class="small" id="dPct"></div>
+      <div class="moe" id="dMoe" hidden></div>
+      <div class="stepnav"><button id="dPrev">Back</button><button class="primary" id="dNext">Next step</button></div></div>`; },
+    bind() {
+      const on = (id, f) => { const e = $(id); if (e) e.addEventListener('click', f); };
+      on('dOne', drawOne); on('dBack1', () => { if (st.busy) return; st.busy = true; ui(); putBack(() => { setTally(null); st.busy = false; ui(); }); });
+      on('d10', () => handful('small', 10, { gap: 170, dur: 650 })); on('dSort', sortJar);
+      on('d100', () => handful('small', 100, { gap: 22, dur: 480 })); on('d100x', () => twenty(['small'], 100));
+      on('dBig', () => handful('big', 100, { gap: 22, dur: 480 })); on('dBothx', () => twenty(['small', 'big'], 100));
+      const fast = () => ({ gap: st.n <= 10 ? 170 : 22, dur: st.n <= 10 ? 650 : 480 });
+      on('dS', () => handful('small', st.n, fast())); on('dB', () => handful('big', st.n, fast())); on('dX', () => twenty(['small', 'big'], st.n));
+      const nIn = $('dN'); if (nIn) nIn.addEventListener('change', e => { st.n = clampN(e.target.value); e.target.value = st.n; ui(); });
+      document.querySelectorAll('[data-dn]').forEach(b => b.addEventListener('click', () => { st.n = +b.dataset.dn; $('dN').value = st.n; ui(); }));
+      on('dPrev', () => go(st.step - 1)); on('dNext', () => go(st.step + 1));
+      setTally(st.tally); ui(); kick();
+    },
+    render() { grain = null; kick(); },
+  };
+})();
+
 // ---------- switcher ----------
-const V = { A, B, C }, keys = Object.keys(V);
-const cur = () => (keys.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'A');
+const V = { D, A, B, C }, keys = Object.keys(V);
+const cur = () => (keys.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'D');
 function mount() {
   const v = V[cur()]; document.getElementById('mount').innerHTML = v.html(); v.bind();
   document.getElementById('vlabel').textContent = `${cur()} · ${v.name}`;

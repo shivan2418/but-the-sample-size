@@ -2,7 +2,9 @@
 
 Answers [How the marble jars look and behave](https://github.com/shivan2418/but-the-sample-size/issues/12). This is not production code; only the decision carries forward.
 
-`index.html` is one self-contained page: a mock of the explainer around three variants of the marble rung's widget. Switch variants with the bar at the bottom, the arrow keys, or `#A` / `#B` / `#C`. It is published as a private artifact (the link is on the ticket). The file has no `<html>`/`<head>` wrapper because the artifact host adds one; opening it straight from disk also works.
+`index.html` is one self-contained page: a mock of the explainer around four variants of the marble rung's widget. Switch variants with the bar at the bottom, the arrow keys, or `#D` / `#A` / `#B` / `#C`. It is published as a private artifact (the link is on the ticket). The file has no `<html>`/`<head>` wrapper because the artifact host adds one; opening it straight from disk also works.
+
+| **D · Tactile to abstract** (round 2, default) | One jar first; a zoom out 10× reveals a jar 10× as tall, wide and deep (1,000× the marbles), drawn to scale next to the first | Guided steps: take out one marble (slow) → grab 10 (faster) → grab 100 (faster still) and ×20 (dots only) → big jar → free play | Each counted handful collapses into one dot that flies to the chart; one row per jar and size | Rows per size and jar; free play last |
 
 | | Jars | Sample size control | Spread | Compare sizes |
 |---|---|---|---|---|
