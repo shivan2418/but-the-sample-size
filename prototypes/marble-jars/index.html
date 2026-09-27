@@ -1,0 +1,451 @@
+<title>Marble Jars</title>
+<!--
+  PROTOTYPE, throwaway. Answers "How the marble jars look and behave"
+  (https://github.com/shivan2418/but-the-sample-size/issues/12).
+  Three structurally different variants of the marble rung's widget, set inside a mock of the explainer page.
+  Switch with the bar at the bottom, the arrow keys, or #A / #B / #C in the URL.
+  A: Twin jars (free play, jars drawn at the same size, one dot plot per jar, every size you try keeps a lane)
+  B: One plot (jars drawn to scale, a live slider, both jars mirrored on one dot plot, explicit "pin")
+  C: Guided steps (a walkthrough of fixed steps, then free play; histograms; the big jar is 1,000 small jars)
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Literata:opsz,wght@7..72,400;7..72,600&display=swap">
+<style>
+:root{
+  --bg:#F1F3F6; --surface:#FFFFFF; --ink:#17202C; --muted:#586273; --line:#D5DAE2;
+  --red:#D4463A; --blue:#2C66CA; --dim:#CDD3DC; --pin:#98A1B0; --glass:#E6EBF1; --note:#FFF7D6; --note-ink:#5B4A00;
+  --serif:"Literata",Georgia,"Times New Roman",serif;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#10141A; --surface:#19202A; --ink:#E5E9F0; --muted:#98A2B2; --line:#2C3441;
+    --red:#EE6457; --blue:#5B8FEC; --dim:#343C49; --pin:#6F7988; --glass:#212936; --note:#2E2A14; --note-ink:#E9D98A;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#10141A; --surface:#19202A; --ink:#E5E9F0; --muted:#98A2B2; --line:#2C3441;
+  --red:#EE6457; --blue:#5B8FEC; --dim:#343C49; --pin:#6F7988; --glass:#212936; --note:#2E2A14; --note-ink:#E9D98A;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.55 var(--sans);padding-inline:16px;padding-block:0 96px}
+.page{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+.proto{margin-top:16px;background:var(--note);color:var(--note-ink);font:13px/1.45 var(--sans);padding:10px 12px;border-radius:6px}
+.site{font:600 13px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding-top:8px}
+.objection{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;font:15px/1.5 var(--sans)}
+.objection .who{font:600 13px var(--sans);color:var(--muted)}
+h1,h2{font-family:var(--serif);font-weight:600;text-wrap:balance;margin:0}
+h1{font-size:28px;line-height:1.2}
+h2{font-size:21px;line-height:1.25}
+.prose{font:17px/1.6 var(--serif);margin:0}
+.prose + .prose{margin-top:-8px}
+.widget{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:14px}
+.eyebrow{font:600 12px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.col{display:flex;flex-direction:column;gap:6px;min-width:0}
+canvas{display:block;width:100%}
+button{font:500 14px var(--sans);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer}
+button.primary{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+button[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+button:disabled{opacity:.4;cursor:default}
+input[type=number]{font:500 16px var(--mono);width:9ch;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+input[type=range]{width:100%;accent-color:var(--ink)}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.small{font-size:13px;color:var(--muted);line-height:1.45}
+.tally{font:14px/1.4 var(--sans)}
+.tally b{font:500 15px var(--mono)}
+.r{color:var(--red)} .b{color:var(--blue)}
+.moe{font:14px/1.45 var(--sans);border-left:3px solid var(--ink);padding-left:10px}
+.moe b{font-family:var(--mono);font-weight:500}
+details{font-size:13px;color:var(--muted)}
+details summary{cursor:pointer;font-weight:500;color:var(--ink)}
+.log{max-height:180px;overflow:auto;font:12px/1.6 var(--mono);margin-top:6px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:6px 4px;border-bottom:1px solid var(--line)}
+td.num,th.num{text-align:right}
+.steps{display:flex;gap:6px}
+.steps span{flex:1;height:4px;border-radius:2px;background:var(--line)}
+.steps span.on{background:var(--ink)}
+.stepnav{display:flex;justify-content:space-between;gap:8px}
+.lede{font:16px/1.55 var(--serif);margin:0}
+.switcher{position:fixed;left:50%;bottom:0;transform:translateX(-50%);margin-bottom:calc(12px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:4px;background:#0B0D10;color:#fff;border-radius:999px;padding:4px;box-shadow:0 6px 24px rgba(0,0,0,.35);font:500 13px var(--sans);z-index:10;max-width:calc(100% - 32px)}
+.switcher button{background:transparent;color:#fff;border:0;padding:8px 12px;font-size:16px}
+.switcher .lbl{padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:420px){ .cols{gap:8px} h1{font-size:25px} }
+@media (prefers-reduced-motion: reduce){ *{scroll-behavior:auto!important} }
+</style>
+
+<div class="page">
+  <div class="proto">Prototype, throwaway. Three takes on the marble rung for <em>How the marble jars look and behave</em>. Flip between them with the black bar at the bottom. Nothing here is final copy.</div>
+  <div class="site">But the sample size</div>
+  <div class="objection">
+    <div class="who">A comment you've probably seen</div>
+    "1,200 people out of 300 million? That's 0.0004%. How can that mean anything?"
+  </div>
+  <h1>Marbles: a small jar and a big jar</h1>
+  <p class="prose">Forget people for a moment. Here are two jars of red and blue marbles, mixed the same way. One holds a thousand marbles, the other a million. You can't see inside, but you can grab a handful and count it.</p>
+  <div id="mount"></div>
+  <p class="prose">Next, we swap the marbles for people: every registered voter in a real North Carolina town.</p>
+</div>
+
+<div class="switcher" role="toolbar" aria-label="Prototype variant">
+  <button id="prev" aria-label="Previous variant">‹</button>
+  <span class="lbl" id="vlabel"></span>
+  <button id="next" aria-label="Next variant">›</button>
+</div>
+
+<script>
+// ---------- shared model ----------
+const P = 0.55, SMALL = 1000, BIG = 1000000;
+const tok = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt = n => n.toLocaleString('en-US');
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const jar = shuffle(Array.from({ length: SMALL }, (_, i) => (i < SMALL * P ? 1 : 0))); // 1 = red
+
+function drawSmall(n) {
+  n = Math.min(n, SMALL);
+  const idx = Array.from({ length: SMALL }, (_, i) => i);
+  for (let i = 0; i < n; i++) { const j = i + Math.floor(Math.random() * (SMALL - i)); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+  const picked = idx.slice(0, n); let red = 0; for (const k of picked) red += jar[k];
+  return { jar: 'small', n, red, pct: red / n * 100, picked };
+}
+function drawBig(n) { // exact draw without replacement from 550,000 red + 450,000 blue
+  n = Math.min(n, BIG); let R = BIG * P, T = BIG, red = 0;
+  for (let i = 0; i < n; i++) { if (Math.random() * T < R) { R--; red++; } T--; }
+  return { jar: 'big', n, red, pct: red / n * 100 };
+}
+const moe = (n, N) => (n >= N ? 0 : 1.96 * Math.sqrt(P * (1 - P) / n * (N - n) / (N - 1)) * 100);
+const fmtMoe = m => (m === 0 ? '0' : m < 0.1 ? m.toFixed(2) : m.toFixed(1));
+function pctOf(n, N) { const v = Math.min(n, N) / N * 100; if (v >= 10) return v.toFixed(0) + '%'; if (v >= 1) return v.toFixed(1) + '%'; if (v >= 0.01) return v.toFixed(2) + '%'; return v.toPrecision(1) + '%'; }
+const within = (vals, m) => vals.filter(v => Math.abs(v - 55) <= m + 1e-9).length;
+const clampN = v => Math.max(1, Math.min(BIG, Math.round(+v || 1)));
+
+function canvasCtx(c, h) {
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth || 300;
+  c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); c.style.height = h + 'px';
+  const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  return { g, w, h };
+}
+function axis(g, x, y, x0, x1) {
+  g.strokeStyle = tok('--line'); g.lineWidth = 1; g.beginPath(); g.moveTo(x0, y + .5); g.lineTo(x1, y + .5); g.stroke();
+  g.fillStyle = tok('--muted'); g.font = '11px ' + tok('--mono'); g.textAlign = 'center'; g.textBaseline = 'top';
+  for (const t of [0, 25, 50, 75, 100]) { g.fillRect(x(t), y, 1, 4); g.fillText(t + '%', x(t), y + 6); }
+}
+function trueLine(g, x, y0, y1, label) {
+  g.strokeStyle = tok('--ink'); g.setLineDash([3, 3]); g.lineWidth = 1; g.beginPath(); g.moveTo(Math.round(x(55)) + .5, y0); g.lineTo(Math.round(x(55)) + .5, y1); g.stroke(); g.setLineDash([]);
+  if (label) { g.fillStyle = tok('--ink'); g.font = '500 11px ' + tok('--sans'); g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText(label, x(55) + 4, y0); }
+}
+// stack dots in bins centred on the true split
+function dots(g, vals, { x, y, dir = -1, r, bin, color, hollow = false, maxH }) {
+  const bins = vals.map(v => Math.round((v - 55) / bin)), counts = {};
+  let max = 0; for (const b of bins) { counts[b] = (counts[b] || 0) + 1; max = Math.max(max, counts[b]); }
+  const step = Math.min(2 * r + 0.6, max > 0 ? (maxH - r) / max : 99), seen = {};
+  for (const b of bins) {
+    const k = seen[b] = (seen[b] || 0) + 1, cx = x(Math.max(0, Math.min(100, 55 + b * bin))), cy = y + dir * (r + 1 + (k - 1) * step);
+    g.beginPath(); g.arc(cx, cy, r, 0, 7);
+    if (hollow) { g.strokeStyle = color; g.lineWidth = 1.2; g.stroke(); } else { g.fillStyle = color; g.fill(); }
+  }
+}
+// a grid of the small jar's 1,000 marbles; optional jar outline
+function marbleGrid(c, { cols, rows, h, picked = null, sorted = false, outline = false }) {
+  const { g, w } = canvasCtx(c, h);
+  const pad = outline ? 10 : 2, top = outline ? 22 : 2;
+  if (outline) jarShape(g, w, h);
+  const cw = (w - 2 * pad) / cols, ch = (h - top - pad) / rows, r = Math.max(1, Math.min(cw, ch) / 2 - 0.6);
+  const order = sorted ? Array.from({ length: SMALL }, (_, i) => i).sort((a, b) => jar[b] - jar[a]) : Array.from({ length: SMALL }, (_, i) => i);
+  const red = tok('--red'), blue = tok('--blue'), dim = tok('--dim');
+  order.forEach((m, pos) => {
+    const cx = pad + (pos % cols + .5) * cw, cy = top + (Math.floor(pos / cols) + .5) * ch;
+    g.beginPath(); g.arc(cx, cy, r, 0, 7);
+    g.fillStyle = picked && !picked.has(m) ? dim : (jar[m] ? red : blue); g.fill();
+  });
+}
+function jarShape(g, w, h) {
+  g.fillStyle = tok('--glass'); g.strokeStyle = tok('--line'); g.lineWidth = 1.5;
+  g.beginPath(); g.roundRect(w * .3, 2, w * .4, 14, 3); g.fill(); g.stroke();
+  g.beginPath(); g.roundRect(2, 16, w - 4, h - 18, 16); g.fill(); g.stroke();
+}
+function speckJar(c, h, outline = true) { // too many to draw; fine grain
+  const { g, w } = canvasCtx(c, h);
+  if (outline) jarShape(g, w, h);
+  const red = tok('--red'), blue = tok('--blue'), pad = 10, top = 22;
+  let s = 7; const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < 26000; i++) { g.fillStyle = rnd() < P ? red : blue; g.fillRect(pad + rnd() * (w - 2 * pad), top + rnd() * (h - top - pad), 1.1, 1.1); }
+}
+function handfulStrip(c, res, max = 120) { // the handful itself, as marbles
+  const shown = Math.min(res.n, max), redShown = Math.round(shown * res.red / res.n);
+  const arr = shuffle(Array.from({ length: shown }, (_, i) => (i < redShown ? 1 : 0)));
+  const cols = 20, r = 3.2, rows = Math.ceil(shown / cols) || 1;
+  const { g, w } = canvasCtx(c, rows * 8 + 4), cw = Math.min(8, w / cols);
+  arr.forEach((v, i) => { g.beginPath(); g.arc(4 + (i % cols) * cw, 4 + Math.floor(i / cols) * 8, r, 0, 7); g.fillStyle = v ? tok('--red') : tok('--blue'); g.fill(); });
+}
+
+// ---------- variant A: Twin jars ----------
+const A = {
+  name: 'Twin jars',
+  st: { n: 200, last: { small: null, big: null }, lanes: { small: [], big: [] }, log: [], sorted: false },
+  html: () => `
+  <div class="widget">
+    <div class="cols">
+      <div class="col"><div class="eyebrow">Small jar</div><canvas id="aJarS"></canvas>
+        <div class="small num">1,000 marbles</div><div class="small" id="aPctS"></div><canvas id="aHandS"></canvas><div class="tally" id="aTallyS"></div></div>
+      <div class="col"><div class="eyebrow">Big jar</div><canvas id="aJarB"></canvas>
+        <div class="small num">1,000,000 marbles, too many to draw one by one</div><div class="small" id="aPctB"></div><canvas id="aHandB"></canvas><div class="tally" id="aTallyB"></div></div>
+    </div>
+    <div class="col">
+      <label class="eyebrow" for="aN">Handful size</label>
+      <div class="row"><input id="aN" type="number" min="1" max="1000000" inputmode="numeric">
+        ${[10, 100, 200, 1000, 12000].map(v => `<button data-n="${v}">${fmt(v)}</button>`).join('')}</div>
+    </div>
+    <div class="row"><button class="primary" id="aOnce">Grab a handful</button><button id="aRep">Grab 20 more</button><button id="aCount" aria-pressed="false">Count the small jar</button></div>
+    <div class="col"><div class="eyebrow">Every handful: % red</div>
+      <div class="small">Each dot is one handful. Each size you try keeps its own row, newest on top.</div>
+      <div class="small"><b>Small jar</b></div><canvas id="aPlotS"></canvas><div class="moe" id="aMoeS"></div>
+      <div class="small"><b>Big jar</b></div><canvas id="aPlotB"></canvas><div class="moe" id="aMoeB"></div>
+      <div class="small">The ± number is what news reports call the <b>margin of error</b>.</div>
+    </div>
+    <details><summary>Every handful so far</summary><div class="log" id="aLog"></div></details>
+  </div>`,
+  bind() {
+    const s = this.st, $ = id => document.getElementById(id);
+    $('aN').value = s.n;
+    $('aN').addEventListener('change', e => { s.n = clampN(e.target.value); e.target.value = s.n; this.render(); });
+    document.querySelectorAll('[data-n]').forEach(b => b.addEventListener('click', () => { s.n = +b.dataset.n; $('aN').value = s.n; this.render(); }));
+    $('aOnce').addEventListener('click', () => this.grab(1));
+    $('aRep').addEventListener('click', () => this.grab(20));
+    $('aCount').addEventListener('click', e => { s.sorted = !s.sorted; e.target.setAttribute('aria-pressed', s.sorted); this.render(); });
+    if (!s.lanes.small.length) this.grab(20);
+  },
+  grab(k) {
+    const s = this.st;
+    for (let i = 0; i < k; i++) {
+      const a = drawSmall(s.n), b = drawBig(s.n); s.last = { small: a, big: b };
+      for (const [key, res] of [['small', a], ['big', b]]) {
+        let lane = s.lanes[key].find(l => l.n === res.n);
+        if (!lane) { lane = { n: res.n, vals: [] }; s.lanes[key].unshift(lane); }
+        else { s.lanes[key] = [lane, ...s.lanes[key].filter(l => l !== lane)]; }
+        lane.vals.push(res.pct);
+        s.log.unshift(`${key === 'small' ? 'Small' : 'Big  '} jar · ${fmt(res.n).padStart(6)} → ${fmt(res.red)} red (${res.pct.toFixed(1)}%)`);
+      }
+    }
+    s.log.length = Math.min(s.log.length, 400);
+    this.render();
+  },
+  render() {
+    const s = this.st, $ = id => document.getElementById(id);
+    const nS = Math.min(s.n, SMALL);
+    marbleGrid($('aJarS'), { cols: 25, rows: 40, h: 250, outline: true, sorted: s.sorted, picked: s.last.small && !s.sorted ? new Set(s.last.small.picked) : null });
+    speckJar($('aJarB'), 250);
+    $('aPctS').innerHTML = s.n >= SMALL ? `<b>${fmt(s.n)}</b> ${s.n > SMALL ? 'is more than the jar holds, so this' : ''} is the whole jar (100%)` : `<b class="num">${fmt(s.n)}</b> is <b class="num">${pctOf(s.n, SMALL)}</b> of this jar`;
+    $('aPctB').innerHTML = `<b class="num">${fmt(s.n)}</b> is <b class="num">${pctOf(s.n, BIG)}</b> of this jar`;
+    for (const [k, c, t] of [['small', 'aHandS', 'aTallyS'], ['big', 'aHandB', 'aTallyB']]) {
+      const r = s.last[k]; if (!r) continue; handfulStrip($(c), r, 60);
+      $(t).innerHTML = `Last handful: <b class="r">${fmt(r.red)}</b> red, <b class="b">${fmt(r.n - r.red)}</b> blue${r.n > 60 ? ` <span class="small">(first 60 shown)</span>` : ''}<br><b>${r.pct.toFixed(1)}%</b> red`;
+    }
+    for (const [k, c, m, N] of [['small', 'aPlotS', 'aMoeS', SMALL], ['big', 'aPlotB', 'aMoeB', BIG]]) {
+      const lanes = s.lanes[k].slice(0, 3), laneH = 46, h = lanes.length * laneH + 26;
+      const { g, w } = canvasCtx($(c), h), x0 = 44, x1 = w - 18, x = v => x0 + (x1 - x0) * v / 100;
+      const bin = 2, r = Math.max(1.6, (x(bin) - x(0)) / 2 - .4);
+      trueLine(g, x, 0, h - 26, '');
+      lanes.forEach((l, i) => {
+        const y = (i + 1) * laneH - 4;
+        g.fillStyle = tok('--muted'); g.font = '11px ' + tok('--mono'); g.textAlign = 'right'; g.textBaseline = 'alphabetic'; g.fillText(l.n >= 1000 ? (l.n / 1000) + 'k' : l.n, x0 - 8, y);
+        dots(g, l.vals, { x, y, r, bin, color: i === 0 ? tok('--ink') : tok('--pin'), maxH: laneH - 6 });
+      });
+      axis(g, x, h - 24, x0, x1);
+      const cur = lanes[0], mm = moe(Math.min(s.n, N), N);
+      $(m).innerHTML = cur ? (mm === 0 ? `A handful of ${fmt(Math.min(s.n, N))} is the whole jar: every one lands exactly on <b>55%</b>.` :
+        `95% of handfuls of ${fmt(cur.n)} land within <b>±${fmtMoe(mm)} points</b> of the true 55%. <span class="small">${within(cur.vals, mm)} of your ${cur.vals.length} did.</span>`) : '';
+    }
+    $('aLog').textContent = s.log.join('\n');
+  }
+};
+
+// ---------- variant B: One plot ----------
+const B = {
+  name: 'One plot, to scale',
+  st: { n: 200, runs: null, pinned: null },
+  html: () => `
+  <div class="widget">
+    <div class="col"><div class="eyebrow">The two jars, drawn to scale</div><canvas id="bScale"></canvas>
+      <div class="small">The big square holds a million marbles. The small jar is the speck in its corner: a thousand of them would fill the big one.</div></div>
+    <div class="col">
+      <label class="eyebrow" for="bSlide">How many marbles do you grab?</label>
+      <input id="bSlide" type="range" min="0" max="1000" step="1" aria-describedby="bSentence">
+      <div class="row"><input id="bN" type="number" min="1" max="1000000" inputmode="numeric" aria-label="Handful size"><span class="small">10 → 1,000,000 (slider is logarithmic)</span></div>
+      <div class="tally" id="bSentence"></div>
+    </div>
+    <div class="col"><div class="eyebrow">20 handfuls from each jar: % red</div><canvas id="bPlot"></canvas>
+      <div class="row"><button id="bMore">Grab 20 more</button><button id="bPin">Pin this size</button><button id="bUnpin" hidden>Clear pin</button></div>
+      <div class="small">Filled dots are the size you're on. Hollow dots are the pinned size.</div>
+    </div>
+    <div class="col"><div class="eyebrow">Margin of error: 95% of handfuls land within ±</div>
+      <table><thead><tr><th>Handful</th><th class="num">Small jar</th><th class="num">Big jar</th></tr></thead><tbody id="bTable"></tbody></table>
+    </div>
+  </div>`,
+  toSlider: n => Math.round(Math.log10(n / 10) / 5 * 1000),
+  fromSlider: v => { const n = 10 * Math.pow(10, v / 1000 * 5); const p = Math.pow(10, Math.max(0, Math.floor(Math.log10(n)) - 1)); return Math.round(n / p) * p; },
+  run(n, k = 20) { const S = [], Bg = []; for (let i = 0; i < k; i++) { S.push(drawSmall(n).pct); Bg.push(drawBig(n).pct); } return { n, S, B: Bg }; },
+  bind() {
+    const s = this.st, $ = id => document.getElementById(id);
+    const set = (n, fromSlider) => { s.n = clampN(n); $('bN').value = s.n; if (!fromSlider) $('bSlide').value = this.toSlider(s.n); s.runs = this.run(s.n); this.render(); };
+    let raf = 0;
+    $('bSlide').addEventListener('input', e => { cancelAnimationFrame(raf); const v = +e.target.value; raf = requestAnimationFrame(() => set(this.fromSlider(v), true)); });
+    $('bN').addEventListener('change', e => set(e.target.value));
+    $('bMore').addEventListener('click', () => { const r = this.run(s.n); s.runs.S.push(...r.S); s.runs.B.push(...r.B); this.render(); });
+    $('bPin').addEventListener('click', () => { s.pinned = { n: s.runs.n, S: [...s.runs.S], B: [...s.runs.B] }; this.render(); });
+    $('bUnpin').addEventListener('click', () => { s.pinned = null; this.render(); });
+    if (!s.runs) { set(s.n); } else { $('bN').value = s.n; $('bSlide').value = this.toSlider(s.n); this.render(); }
+  },
+  render() {
+    const s = this.st, $ = id => document.getElementById(id);
+    { // to-scale figure
+      const { g, w } = canvasCtx($('bScale'), Math.min(300, (document.getElementById('bScale').clientWidth || 300)));
+      const side = Math.min(w, 300) - 2, ox = 1, oy = 1;
+      let seed = 11; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+      g.fillStyle = tok('--glass'); g.fillRect(ox, oy, side, side);
+      const red = tok('--red'), blue = tok('--blue');
+      for (let i = 0; i < 22000; i++) { g.fillStyle = rnd() < P ? red : blue; g.fillRect(ox + rnd() * side, oy + rnd() * side, 1, 1); }
+      g.strokeStyle = tok('--ink'); g.lineWidth = 1; g.strokeRect(ox + .5, oy + .5, side - 1, side - 1);
+      const sm = side / Math.sqrt(1000);
+      g.fillStyle = tok('--surface'); g.fillRect(ox + 8, oy + 8, sm + 4, sm + 4);
+      g.fillStyle = tok('--ink'); g.fillRect(ox + 10, oy + 10, sm, sm);
+      g.font = '600 12px ' + tok('--sans'); g.textBaseline = 'middle'; g.textAlign = 'left';
+      const lbl = (t, x, y) => { const m = g.measureText(t).width; g.fillStyle = tok('--surface'); g.fillRect(x - 4, y - 10, m + 8, 20); g.fillStyle = tok('--ink'); g.fillText(t, x, y); };
+      lbl('◀ small jar: 1,000', ox + sm + 18, oy + 10 + sm / 2);
+      lbl('big jar: 1,000,000', ox + 10, oy + side - 18);
+      if (w > side + 4) { /* nothing */ }
+    }
+    const nS = Math.min(s.n, SMALL);
+    $('bSentence').innerHTML = `You grab <b class="num">${fmt(s.n)}</b>. That's <b class="num">${s.n >= SMALL ? '100%' : pctOf(s.n, SMALL)}</b> of the small jar${s.n > SMALL ? ' (all of it: it only holds 1,000)' : ''} and <b class="num">${pctOf(s.n, BIG)}</b> of the big one.`;
+    { // mirrored dot plot
+      const h = 190, { g, w } = canvasCtx($('bPlot'), h), x0 = 14, x1 = w - 18, x = v => x0 + (x1 - x0) * v / 100, mid = 88;
+      const bin = 1, r = Math.max(1.5, (x(bin) - x(0)) / 2 - .2);
+      g.fillStyle = tok('--muted'); g.font = '600 11px ' + tok('--sans'); g.textAlign = 'left'; g.textBaseline = 'top';
+      g.fillText('SMALL JAR ↑', x0, 0); g.textBaseline = 'bottom'; g.fillText('BIG JAR ↓', x0, h - 2);
+      trueLine(g, x, 14, h - 16, 'true 55%');
+      if (s.pinned) { dots(g, s.pinned.S, { x, y: mid - 2, dir: -1, r, bin, color: tok('--pin'), hollow: true, maxH: 68 }); dots(g, s.pinned.B, { x, y: mid + 24, dir: 1, r, bin, color: tok('--pin'), hollow: true, maxH: 68 }); }
+      dots(g, s.runs.S, { x, y: mid - 2, dir: -1, r, bin, color: tok('--ink'), maxH: 68 });
+      dots(g, s.runs.B, { x, y: mid + 24, dir: 1, r, bin, color: tok('--ink'), maxH: 68 });
+      axis(g, x, mid, x0, x1);
+    }
+    $('bPin').textContent = `Pin ${fmt(s.n)}`; $('bUnpin').hidden = !s.pinned;
+    const row = (n, S, Bv, tag) => { const ms = moe(Math.min(n, SMALL), SMALL), mb = moe(n, BIG);
+      return `<tr><td class="num">${fmt(n)}${tag ? ` <span class="small">${tag}</span>` : ''}</td><td class="num">±${fmtMoe(ms)}${ms === 0 ? ' <span class="small">whole jar</span>' : ''} <span class="small">(${within(S, ms)}/${S.length})</span></td><td class="num">±${fmtMoe(mb)} <span class="small">(${within(Bv, mb)}/${Bv.length})</span></td></tr>`; };
+    $('bTable').innerHTML = (s.pinned ? row(s.pinned.n, s.pinned.S, s.pinned.B, 'pinned') : '') + row(s.n, s.runs.S, s.runs.B, 'now');
+  }
+};
+
+// ---------- variant C: Guided steps ----------
+const C = {
+  name: 'Guided steps',
+  st: { step: 0, sorted: false, hist: {}, last: null, n: 200 },
+  steps: [
+    { t: 'A jar of 1,000 marbles', body: 'Red and blue, mixed. Sort them if you want to count. The real mix is the thing a handful is trying to guess.' },
+    { t: 'Grab 10 without looking', body: 'Count the handful. Then put it back and grab again. Each grab lands somewhere different.' },
+    { t: 'Grab 200 instead', body: 'Bigger handfuls land closer to the real mix. Compare the two rows.' },
+    { t: 'Now a jar 1,000 times bigger', body: 'Each little square below is a jar like the first one. A handful of 200 from this jar spreads almost exactly like a handful of 200 from the small one.' },
+    { t: 'Grab the whole small jar', body: 'A handful of 1,000 is every marble in the small jar, so it can only come out one way. The big jar still spreads, but not by much.' },
+    { t: 'Your turn', body: 'Pick any handful size and grab from both jars.' },
+  ],
+  html() {
+    const s = this.st, st = this.steps[s.step];
+    return `<div class="widget">
+    <div class="steps">${this.steps.map((_, i) => `<span class="${i <= s.step ? 'on' : ''}"></span>`).join('')}</div>
+    <div class="eyebrow">Step ${s.step + 1} of ${this.steps.length}</div>
+    <h2>${st.t}</h2><p class="lede">${st.body}</p>
+    <div id="cBody" class="col" style="gap:12px"></div>
+    <div class="stepnav"><button id="cBack" ${s.step === 0 ? 'disabled' : ''}>Back</button><button class="primary" id="cNext" ${s.step === this.steps.length - 1 ? 'disabled' : ''}>Next step</button></div>
+  </div>`;
+  },
+  key: (j, n) => j + ':' + n,
+  grab(j, n, k = 1) { const s = this.st; const h = s.hist[this.key(j, n)] = s.hist[this.key(j, n)] || []; for (let i = 0; i < k; i++) { const r = j === 'small' ? drawSmall(n) : drawBig(n); h.push(r.pct); s.last = r; } },
+  bind() {
+    const s = this.st, $ = id => document.getElementById(id), body = $('cBody');
+    $('cBack').addEventListener('click', () => { s.step--; s.last = null; mount(); });
+    $('cNext').addEventListener('click', () => { s.step++; s.last = null; mount(); });
+    const btn = (label, fn, primary) => `<button ${primary ? 'class="primary"' : ''} data-a="${label}">${label}</button>`;
+    let acts = {};
+    const setActs = a => { acts = a; body.querySelectorAll('[data-a]').forEach(b => b.addEventListener('click', () => { acts[b.dataset.a](); this.render(); })); };
+    switch (s.step) {
+      case 0: body.innerHTML = `<canvas id="cGrid"></canvas><div class="row">${btn('Sort to count', 0, 1)}</div><div class="tally" id="cOut"></div>`;
+        setActs({ 'Sort to count': () => { s.sorted = !s.sorted; } }); break;
+      case 1: body.innerHTML = `<canvas id="cGrid"></canvas><div class="eyebrow">Your handful</div><canvas id="cHand"></canvas><div class="tally" id="cOut"></div><div class="row">${btn('Grab 10', 0, 1)}${btn('Grab 10, five times')}</div><canvas id="cHist"></canvas>`;
+        setActs({ 'Grab 10': () => this.grab('small', 10), 'Grab 10, five times': () => this.grab('small', 10, 5) }); break;
+      case 2: body.innerHTML = `<canvas id="cGrid"></canvas><div class="eyebrow">Your handful</div><canvas id="cHand"></canvas><div class="tally" id="cOut"></div><div class="row">${btn('Grab 200', 0, 1)}${btn('Grab 200, twenty times')}</div><canvas id="cHist"></canvas><div class="moe" id="cMoe"></div>`;
+        if (!(s.hist['small:10'] || []).length) this.grab('small', 10, 20);
+        setActs({ 'Grab 200': () => this.grab('small', 200), 'Grab 200, twenty times': () => this.grab('small', 200, 20) }); break;
+      case 3: body.innerHTML = `<canvas id="cJars"></canvas><div class="small">1,000 squares × 1,000 marbles = 1,000,000 marbles.</div><div class="row">${btn('Grab 200 from each jar, twenty times', 0, 1)}</div><canvas id="cHist"></canvas><div class="moe" id="cMoe"></div>`;
+        setActs({ 'Grab 200 from each jar, twenty times': () => { this.grab('small', 200, 20); this.grab('big', 200, 20); } }); break;
+      case 4: body.innerHTML = `<div class="row">${btn('Grab 1,000 from each jar, twenty times', 0, 1)}</div><canvas id="cHist"></canvas><div class="moe" id="cMoe"></div>`;
+        setActs({ 'Grab 1,000 from each jar, twenty times': () => { this.grab('small', 1000, 20); this.grab('big', 1000, 20); } }); break;
+      case 5: body.innerHTML = `<div class="row"><label class="eyebrow" for="cN">Handful</label><input id="cN" type="number" min="1" max="1000000" value="${s.n}" inputmode="numeric"></div><div class="small" id="cPct"></div><div class="row">${btn('Grab twenty times from each jar', 0, 1)}</div><canvas id="cHist"></canvas><div class="moe" id="cMoe"></div>`;
+        $('cN').addEventListener('change', e => { s.n = clampN(e.target.value); e.target.value = s.n; this.render(); });
+        setActs({ 'Grab twenty times from each jar': () => { this.grab('small', Math.min(s.n, SMALL), 20); this.grab('big', s.n, 20); } }); break;
+    }
+    this.render();
+  },
+  hist(c, series) {
+    const rowH = 64, h = series.length * rowH + 22, { g, w } = canvasCtx(c, h), x0 = 86, x1 = w - 18, x = v => x0 + (x1 - x0) * v / 100, bin = 2;
+    const counted = series.map(se => { const m = {}; for (const v of se.vals) { const b = Math.round((v - 55) / bin); m[b] = (m[b] || 0) + 1; } return m; });
+    const max = Math.max(1, ...counted.flatMap(m => Object.values(m)));
+    trueLine(g, x, 0, h - 22, '');
+    series.forEach((se, i) => {
+      const base = (i + 1) * rowH - 6;
+      g.fillStyle = tok('--muted'); g.font = '11px ' + tok('--sans'); g.textAlign = 'right'; g.textBaseline = 'alphabetic';
+      g.fillText(se.label, x0 - 8, base - 14); g.font = '11px ' + tok('--mono'); g.fillText(se.vals.length + ' grabs', x0 - 8, base);
+      g.strokeStyle = tok('--line'); g.beginPath(); g.moveTo(x0, base + .5); g.lineTo(x1, base + .5); g.stroke();
+      g.fillStyle = se.color;
+      for (const [b, cnt] of Object.entries(counted[i])) { const v = Math.max(0, Math.min(100, 55 + b * bin)), bw = Math.max(2, x(bin) - x(0) - 1), bh = cnt / max * (rowH - 14); g.fillRect(x(v) - bw / 2, base - bh, bw, bh); }
+    });
+    axis(g, x, h - 20, x0, x1);
+  },
+  render() {
+    const s = this.st, $ = id => document.getElementById(id), ink = tok('--ink'), pin = tok('--pin');
+    if ($('cGrid')) marbleGrid($('cGrid'), { cols: 40, rows: 25, h: 216, sorted: s.sorted, picked: s.last && s.last.picked ? new Set(s.last.picked) : null });
+    if (s.step === 0) $('cOut').innerHTML = s.sorted ? `<b class="r">550</b> red, <b class="b">450</b> blue. The true split is <b>55% red</b>.` : 'Tap "Sort to count" to line them up.';
+    if ($('cHand') && s.last) { handfulStrip($('cHand'), s.last, 200); $('cOut').innerHTML = `<b class="r">${s.last.red}</b> red, <b class="b">${s.last.n - s.last.red}</b> blue: <b>${s.last.pct.toFixed(0)}%</b> red`; }
+    else if ($('cOut') && s.step > 0) $('cOut').textContent = 'Nothing grabbed yet.';
+    if ($('cJars')) { // 1,000 small jars
+      const cols = 40, rows = 25, { g, w } = canvasCtx($('cJars'), 0), cw = w / cols, h = Math.ceil(cw * rows);
+      const c2 = canvasCtx($('cJars'), h), gg = c2.g; let seed = 3; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+      const red = tok('--red'), blue = tok('--blue');
+      for (let i = 0; i < cols * rows; i++) { const ox = (i % cols) * cw, oy = Math.floor(i / cols) * cw; gg.fillStyle = tok('--glass'); gg.fillRect(ox + .5, oy + .5, cw - 1, cw - 1); for (let k = 0; k < 10; k++) { gg.fillStyle = rnd() < P ? red : blue; gg.fillRect(ox + 1 + rnd() * (cw - 3), oy + 1 + rnd() * (cw - 3), 1.2, 1.2); } }
+    }
+    const H = k => s.hist[k] || [];
+    if (s.step === 1) this.hist($('cHist'), [{ label: 'Handfuls of 10', vals: H('small:10'), color: ink }]);
+    if (s.step === 2) { this.hist($('cHist'), [{ label: 'Handfuls of 10', vals: H('small:10'), color: pin }, { label: 'Handfuls of 200', vals: H('small:200'), color: ink }]);
+      $('cMoe').innerHTML = `95% of handfuls of 10 land within <b>±${fmtMoe(moe(10, SMALL))}</b> points of 55%. Handfuls of 200: within <b>±${fmtMoe(moe(200, SMALL))}</b>. Pollsters call this number the <b>margin of error</b>.`; }
+    if (s.step === 3) { this.hist($('cHist'), [{ label: 'Small jar, 200', vals: H('small:200'), color: ink }, { label: 'Big jar, 200', vals: H('big:200'), color: ink }]);
+      $('cMoe').innerHTML = `Margin of error for 200: small jar <b>±${fmtMoe(moe(200, SMALL))}</b>, big jar <b>±${fmtMoe(moe(200, BIG))}</b>. A jar 1,000 times bigger, and the handful is barely less accurate.`; }
+    if (s.step === 4) { this.hist($('cHist'), [{ label: 'Small jar, 1,000', vals: H('small:1000'), color: ink }, { label: 'Big jar, 1,000', vals: H('big:1000'), color: ink }]);
+      $('cMoe').innerHTML = `Small jar: <b>±0</b> (you counted every marble). Big jar: <b>±${fmtMoe(moe(1000, BIG))}</b>. The size of the jar only matters once the handful is a big share of it.`; }
+    if (s.step === 5) { const nS = Math.min(s.n, SMALL);
+      $('cPct').innerHTML = `${fmt(s.n)} is ${s.n >= SMALL ? 'all' : pctOf(s.n, SMALL)} of the small jar and ${pctOf(s.n, BIG)} of the big one.`;
+      this.hist($('cHist'), [{ label: `Small jar, ${fmt(nS)}`, vals: H('small:' + nS), color: ink }, { label: `Big jar, ${fmt(s.n)}`, vals: H('big:' + s.n), color: ink }]);
+      $('cMoe').innerHTML = `Margin of error: small jar <b>±${fmtMoe(moe(nS, SMALL))}</b>, big jar <b>±${fmtMoe(moe(s.n, BIG))}</b>.`; }
+  }
+};
+
+// ---------- switcher ----------
+const V = { A, B, C }, keys = Object.keys(V);
+const cur = () => (keys.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'A');
+function mount() {
+  const v = V[cur()]; document.getElementById('mount').innerHTML = v.html(); v.bind();
+  document.getElementById('vlabel').textContent = `${cur()} · ${v.name}`;
+}
+const go = d => { const i = (keys.indexOf(cur()) + d + keys.length) % keys.length; history.replaceState(null, '', '#' + keys[i]); mount(); };
+document.getElementById('prev').addEventListener('click', () => go(-1));
+document.getElementById('next').addEventListener('click', () => go(1));
+window.addEventListener('keydown', e => { if (e.target.closest('input,textarea,[contenteditable]')) return; if (e.key === 'ArrowLeft') go(-1); if (e.key === 'ArrowRight') go(1); });
+window.addEventListener('hashchange', mount);
+let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => V[cur()].render(), 120); });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => V[cur()].render());
+new MutationObserver(() => V[cur()].render()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+mount();
+</script>
