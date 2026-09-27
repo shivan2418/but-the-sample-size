@@ -4,7 +4,7 @@ An interactive explainer, for readers without a stats background, of why a rando
 
 ## Commands
 
-Needs Node 22+ and pnpm (`corepack enable` picks up the pinned version).
+Needs Node 24+, pnpm (`corepack enable` picks up the pinned version) and Docker.
 
 | Command | What it does |
 | --- | --- |
@@ -20,8 +20,9 @@ Needs Node 22+ and pnpm (`corepack enable` picks up the pinned version).
 | `pnpm build` | Prerender the page into `build/` |
 | `pnpm preview` | Serve `build/` |
 | `pnpm build-storybook` | Static Storybook into `storybook-static/` |
+| `pnpm pw:stop` | Stop the Playwright browser container the tests start |
 
-The story tests need Playwright's Chromium: run `pnpm exec playwright install chromium` once. Where a Chromium is already installed, point `CHROMIUM_EXECUTABLE` at it instead (in Claude Code cloud sessions: `CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium`).
+The story tests run Chromium in Playwright's official Docker image, never a host install. `pnpm test` and `pnpm test:unit` start it first (`scripts/playwright-server.sh`, image tag matching the installed `playwright`) and leave it running for the next run; `pnpm pw:stop` stops it. Claude Code cloud sessions have no Docker, so there `CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium` launches their preinstalled Chromium instead.
 
 ## GitHub Pages
 

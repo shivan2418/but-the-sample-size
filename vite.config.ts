@@ -43,11 +43,18 @@ export default defineConfig({
 					browser: {
 						enabled: true,
 						headless: true,
-						// CHROMIUM_EXECUTABLE points at a preinstalled Chromium (e.g. /opt/pw-browsers/chromium in
-						// Claude Code cloud sessions) instead of the one `playwright install` downloads.
-						provider: playwright({
-							launchOptions: { executablePath: process.env.CHROMIUM_EXECUTABLE || undefined }
-						}),
+						// Chromium runs in Playwright's official Docker image (scripts/playwright-server.sh);
+						// '<loopback>' routes its requests for localhost back to this machine's Vitest server.
+						// CHROMIUM_EXECUTABLE launches a preinstalled Chromium instead, for Claude Code cloud
+						// sessions, which have one at /opt/pw-browsers/chromium and no Docker.
+						provider: process.env.CHROMIUM_EXECUTABLE
+							? playwright({ launchOptions: { executablePath: process.env.CHROMIUM_EXECUTABLE } })
+							: playwright({
+									connectOptions: {
+										wsEndpoint: `ws://127.0.0.1:${process.env.PLAYWRIGHT_PORT ?? 53333}/`,
+										exposeNetwork: '<loopback>'
+									}
+								}),
 						instances: [{ browser: 'chromium' }]
 					}
 				}

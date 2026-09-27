@@ -15,5 +15,5 @@ Single-context: one `CONTEXT.md` plus `docs/adr/` at the repo root. See `docs/ag
 ## Standing orders
 
 - **Prototype in the real stack.** A UI prototype is a Svelte component in the SvelteKit app with one Storybook story per variant or starting state, in place of the `prototype` skill's `?variant=` switcher or single HTML file. It lives in `src/prototypes/<name>/`, following `src/prototypes/README.md`. Prototypes of logic or data layout (scripts, benchmarks) stay standalone in `prototypes/`.
-- **Run `pnpm check` before pushing app changes.** It runs types, lint and tests (commands in `README.md`). In cloud sessions, set `CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium` so the story tests find a browser.
+- **Run `pnpm check` before pushing app changes.** It runs types, lint and tests (commands in `README.md`). The story tests run Chromium in Playwright's official Docker image; never `playwright install` a browser on the host. In cloud sessions (no Docker), set `CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium` instead.
 - **Push every branch you create or commit to before finishing.** Cloud containers are ephemeral: unpushed work is lost. This includes throwaway `research/*` and prototype branches, and branches used by subagents.
