@@ -27,7 +27,8 @@
 		startWith = 0,
 		startTarget = 100,
 		multiDisplay = 'bars',
-		startRuns = false
+		startRuns = false,
+		onStep
 	}: {
 		speed?: number;
 		palette?: PaletteKey;
@@ -41,6 +42,9 @@
 		multiDisplay?: 'markers' | 'bars';
 		/** Open with 20 counts already run. */
 		startRuns?: boolean;
+		/** Stacked mode (visual-style #16): the widget shows only `startStage`, with no stage tabs,
+		 * and Back / Next step call this instead, so the page can scroll to the next stage. */
+		onStep?: (dir: -1 | 1) => void;
 	} = $props();
 
 	type Cat = { name: string; share: number; col: string };
@@ -180,6 +184,8 @@
 		v = $state(0),
 		tipOpen = $state(false);
 	let canvas: HTMLCanvasElement | undefined = $state();
+	/** The 20 counts get their own strip under the controls, only while they're shown. */
+	let runsCanvas: HTMLCanvasElement | undefined = $state();
 	// the put-back: marbles flying home, then the jar refills
 	let returning: null | {
 		t0: number;
@@ -406,8 +412,8 @@
 
 	/** Hover or tap one of the 20 counts to read it. */
 	function pointAt(e: PointerEvent) {
-		if (!runs || !canvas) return (hover = null);
-		const b = canvas.getBoundingClientRect(),
+		if (!runs || !runsCanvas) return (hover = null);
+		const b = runsCanvas.getBoundingClientRect(),
 			x = e.clientX - b.left,
 			y = e.clientY - b.top;
 		// of the boxes under the pointer, the one whose centre is nearest wins
@@ -498,11 +504,10 @@
 			sans = tok(c, '--sans');
 
 		const bars = multi && multiDisplay === 'bars';
-		const LINE_Y = TOP + JH + 70;
-		const runsTop = LINE_Y + (bars ? 40 : 46);
-		// the 20-count strip is always reserved, so running it doesn't push the buttons down
+		const LINE_Y = TOP + JH + 56;
+		// the 20 counts draw in their own strip under the controls, so nothing is reserved here
 		const runsH = multi ? 20 * 8 + 24 : 116;
-		const { g, w } = fit(c, runsTop + runsH);
+		const { g, w } = fit(c, LINE_Y + (bars ? 34 : 46));
 		let moving = false;
 
 		// ---- the jar, on the right ----
@@ -694,8 +699,6 @@
 				g.fillStyle = colOf[0];
 				g.globalAlpha = 0.18;
 				g.fillRect(X(tv - m), LINE_Y - 9, Math.max(2, X(tv + m) - X(tv - m)), 18);
-				if (runs)
-					g.fillRect(X(tv - m), runsTop + 12, Math.max(2, X(tv + m) - X(tv - m)), runsH - 16);
 				g.globalAlpha = 1;
 				g.strokeStyle = ink;
 				g.lineWidth = 2;
@@ -763,10 +766,10 @@
 			bar(
 				jarY,
 				cats.map((k) => k.share * 100),
-				'IN THE JAR'
+				'In the jar'
 			);
-			bar(cntY, n ? shown : null, 'YOUR COUNT');
-			// guides at the jar's boundaries, down through the count (and the 20 runs)
+			bar(cntY, n ? shown : null, 'Your count');
+			// guides at the jar's boundaries, down through the count
 			g.strokeStyle = ink;
 			g.setLineDash([2, 2]);
 			g.lineWidth = 1;
@@ -775,7 +778,7 @@
 				acc += cats[i].share * 100;
 				g.beginPath();
 				g.moveTo(Math.round(X(acc)) + 0.5, jarY);
-				g.lineTo(Math.round(X(acc)) + 0.5, cntY + 16 + (runs ? runsH : 0));
+				g.lineTo(Math.round(X(acc)) + 0.5, cntY + 16);
 				g.stroke();
 			}
 			g.setLineDash([]);
@@ -783,17 +786,39 @@
 
 		// ---- 20 counts at once, the misses ringed ----
 		runHits = [];
-		if (!runs) {
-			g.fillStyle = muted;
-			g.font = '12px ' + sans;
-			g.textAlign = 'center';
-			g.textBaseline = 'middle';
-			g.fillText(
-				'“Run 20 counts” shows 20 counts here at once',
-				(x0 + x1) / 2,
-				runsTop + runsH / 2
-			);
-		} else {
+		if (runs && runsCanvas) {
+			// same width as the main canvas, so X() lines up with the share line above
+			const { g } = fit(runsCanvas, runsH + 4),
+				runsTop = 0;
+			if (!multi) {
+				const tv = cats[0].share * 100,
+					m = moeP(cats[0].share, runs.n, S.N);
+				g.fillStyle = colOf[0];
+				g.globalAlpha = 0.18;
+				g.fillRect(X(tv - m), runsTop + 12, Math.max(2, X(tv + m) - X(tv - m)), runsH - 16);
+				g.globalAlpha = 1;
+				g.strokeStyle = ink;
+				g.lineWidth = 1;
+				g.setLineDash([2, 2]);
+				g.beginPath();
+				g.moveTo(Math.round(X(tv)) + 0.5, runsTop + 12);
+				g.lineTo(Math.round(X(tv)) + 0.5, runsTop + runsH - 4);
+				g.stroke();
+				g.setLineDash([]);
+			} else {
+				g.strokeStyle = ink;
+				g.setLineDash([2, 2]);
+				g.lineWidth = 1;
+				let acc = 0;
+				for (let i = 0; i < cats.length - 1; i++) {
+					acc += cats[i].share * 100;
+					g.beginPath();
+					g.moveTo(Math.round(X(acc)) + 0.5, runsTop + 12);
+					g.lineTo(Math.round(X(acc)) + 0.5, runsTop + runsH);
+					g.stroke();
+				}
+				g.setLineDash([]);
+			}
 			const shownRuns = Math.min(20, Math.floor((now - runs.t0) / (110 * speed)) + 1);
 			if (shownRuns < 20) moving = true;
 			const rn = runs.n,
@@ -803,7 +828,7 @@
 			g.font = '600 11px ' + sans;
 			g.textAlign = 'left';
 			g.textBaseline = 'top';
-			g.fillText(`20 COUNTS OF ${fmt(rn)}`, x0, runsTop - 2);
+			g.fillText(`20 counts of ${fmt(rn)}`, x0, runsTop);
 			if (!multi) {
 				// each dot sits at its exact value (rounding could push one across the band's edge) and
 				// stacks on any dot it would overlap; the band runs down behind them
@@ -923,45 +948,29 @@
 	});
 </script>
 
-<div class="widget">
-	<div class="steps" role="tablist" aria-label="Stages">
-		{#each stages as s, i (i)}
-			<button
-				class="stepbtn"
-				class:on={i <= stage}
-				role="tab"
-				aria-selected={i === stage}
-				aria-label="Stage {i + 1}: {s.t}"
-				onclick={() => goStage(i)}
-			></button>
-		{/each}
-	</div>
+<div class="widget" class:multi>
+	{#if !onStep}
+		<div class="steps" role="tablist" aria-label="Stages">
+			{#each stages as s, i (i)}
+				<button
+					class="stepbtn"
+					class:on={i <= stage}
+					role="tab"
+					aria-selected={i === stage}
+					aria-label="Stage {i + 1}: {s.t}"
+					onclick={() => goStage(i)}
+				></button>
+			{/each}
+		</div>
+	{/if}
 	<div class="eyebrow">Step {stage + 1} of 3</div>
 	<h2>{S.t}</h2>
 	<p class="lede">{S.lede}</p>
 	<div class="canvas-wrap">
 		<canvas
-			onpointermove={pointAt}
-			onpointerdown={pointAt}
-			onpointerleave={(e) => e.pointerType === 'mouse' && (hover = null)}
 			bind:this={canvas}
 			aria-label="A jar on the right, the marbles counted so far on the left, and the share of each colour so far against the true mix"
 		></canvas>
-		{#if hover}
-			{@const h = hover}
-			<div class="count-tip" style:left="{h.x}px" style:top="{h.y}px" role="status">
-				<b>Count {h.j + 1}</b> · {fmt(h.n)} marbles
-				{#each multi ? h.parts : h.parts.slice(0, 1) as p (p.name)}
-					<div class:missed={p.miss}>
-						{fmt(p.cnt)}
-						{p.name} = <b>{p.pct.toFixed(1)}%</b>,
-						{Math.abs(p.off).toFixed(1)} points off{p.miss
-							? ` — outside ±${fmtPts(p.m)}: missed`
-							: ''}
-					</div>
-				{/each}
-			</div>
-		{/if}
 	</div>
 	<div class="tally tally-box" aria-live="polite">
 		{#if counted}
@@ -1050,6 +1059,33 @@
 		>
 		<button class="wide" onclick={runTwenty}>Run 20 counts</button>
 	</div>
+	{#if info.runText}
+		<!-- appears only after "Run 20 counts", under the controls, so nothing above it moves -->
+		<div class="canvas-wrap">
+			<canvas
+				onpointermove={pointAt}
+				onpointerdown={pointAt}
+				onpointerleave={(e) => e.pointerType === 'mouse' && (hover = null)}
+				bind:this={runsCanvas}
+				aria-label="Twenty counts of the same size, each at the share it found, with the misses ringed"
+			></canvas>
+			{#if hover}
+				{@const h = hover}
+				<div class="count-tip" style:left="{h.x}px" style:top="{h.y}px" role="status">
+					<b>Count {h.j + 1}</b> · {fmt(h.n)} marbles
+					{#each multi ? h.parts : h.parts.slice(0, 1) as p (p.name)}
+						<div class:missed={p.miss}>
+							{fmt(p.cnt)}
+							{p.name} = <b>{p.pct.toFixed(1)}%</b>,
+							{Math.abs(p.off).toFixed(1)} points off{p.miss
+								? ` — outside ±${fmtPts(p.m)}: missed`
+								: ''}
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</div>
+	{/if}
 	<div class="message">
 		{#if info.runText}
 			<div class="moe">{info.runText}</div>
@@ -1067,9 +1103,13 @@
 		{/if}
 	</div>
 	<div class="stepnav">
-		<button disabled={stage === 0} onclick={() => goStage(stage - 1)}>Back</button>
-		<button class="primary" disabled={stage === 2} onclick={() => goStage(stage + 1)}
-			>Next step</button
+		<button disabled={stage === 0} onclick={() => (onStep ? onStep(-1) : goStage(stage - 1))}
+			>Back</button
+		>
+		<button
+			class="primary"
+			disabled={stage === 2 && !onStep}
+			onclick={() => (onStep ? onStep(1) : goStage(stage + 1))}>Next step</button
 		>
 	</div>
 </div>
