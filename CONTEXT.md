@@ -25,7 +25,7 @@ How a resident would vote in the election (a candidate, or "wouldn't vote"): wha
 _Avoid_: Affiliation, vote, preference
 
 **Poll**:
-One random sample of residents together with its tally of their answers.
+One random sample of residents together with its tally of their vote choices.
 _Avoid_: Survey, sample run
 
 **True split**:
