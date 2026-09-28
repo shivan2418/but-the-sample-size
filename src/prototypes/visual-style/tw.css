@@ -1,0 +1,169 @@
+/* PROTOTYPE, throwaway: Tailwind v4 for style C2 · Plain compact. In the real app this import and
+   the tokens would live in src/app.css, loaded by +layout.svelte. */
+@import 'tailwindcss';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* Semantic colours as utilities (bg-ink, text-muted, border-line, text-a…), read from the raw
+   tokens below so the canvas widgets, which read the tokens directly, stay in step. */
+@theme inline {
+	--color-bg: var(--bg);
+	--color-ink: var(--ink);
+	--color-muted: var(--muted);
+	--color-line: var(--line);
+	--color-dim: var(--dim);
+	--color-glass: var(--glass);
+	--color-a: var(--a);
+	--color-b: var(--b);
+	--color-go: var(--go);
+	--color-go-edge: var(--go-edge);
+	--color-focus: var(--focus);
+	--font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+	--font-mono: ui-monospace, Menlo, Consolas, monospace;
+}
+
+@layer base {
+	.plain {
+		--bg: #ffffff;
+		--surface: #ffffff;
+		--ink: #0b0c0c;
+		--muted: #505a5f;
+		--line: #b1b4b6;
+		--dim: #cfd2d4;
+		--pin: #8a8f93;
+		--glass: #f3f2f1;
+		--focus: #ffdd00;
+		--go: #00703c;
+		--go-edge: #002d18;
+		--a: #d4351c;
+		--b: #1d70b8;
+		--grey: #8a8f93;
+		--third: #c29600;
+		--serif: var(--font-sans);
+		--sans: var(--font-sans);
+		--mono: var(--font-mono);
+	}
+	.plain[data-theme='dark'] {
+		color-scheme: dark;
+		--bg: #0e0f10;
+		--surface: #0e0f10;
+		--ink: #f3f2f1;
+		--muted: #a9b0b4;
+		--line: #5c6266;
+		--dim: #33383b;
+		--pin: #767c80;
+		--glass: #1c1e20;
+		--go: #1f9a5a;
+		--go-edge: #0b4d2b;
+		--a: #f0674f;
+		--b: #5aa3e8;
+		--grey: #767c80;
+		--third: #f0c43a;
+	}
+	.plain :focus-visible {
+		outline: 3px solid var(--focus);
+		outline-offset: 0;
+		box-shadow: 0 0 0 5px var(--ink);
+	}
+}
+
+/* The marble widget (G · Converge) still carries its own scoped CSS and styles through these
+   class hooks. Unlayered on purpose: they must beat its scoped rules. When the widget moves into
+   src/lib it gets rewritten with utilities and this block goes. */
+.plain .conv .widget {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+.plain .conv canvas {
+	display: block;
+	width: 100%;
+}
+.plain .conv button:not(.stepbtn) {
+	font: 600 16px var(--sans);
+	color: var(--ink);
+	background: var(--glass);
+	border: 2px solid transparent;
+	border-radius: 0;
+	box-shadow: 0 2px 0 var(--line);
+	padding: 6px 12px;
+	min-height: 44px;
+	cursor: pointer;
+}
+.plain .conv .pair button:is(:first-child, :last-child) {
+	border-radius: 0;
+	border-right-width: 2px;
+}
+.plain .conv button.primary {
+	background: var(--go);
+	color: #fff;
+	box-shadow: 0 2px 0 var(--go-edge);
+}
+.plain .conv button[aria-pressed='true'] {
+	background: var(--ink);
+	color: var(--bg);
+	box-shadow: none;
+}
+.plain .conv button:disabled {
+	opacity: 0.45;
+	cursor: default;
+}
+.plain .conv input[type='number'] {
+	font: 600 17px var(--mono);
+	width: 9ch;
+	padding: 4px 8px;
+	border: 2px solid var(--ink);
+	background: var(--bg);
+	color: var(--ink);
+}
+.plain .conv .row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+}
+/* sample size, presets and "% of the jar" share rows instead of stacking */
+.plain .conv .size {
+	flex-direction: row;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 12px;
+}
+.plain .conv .size > .small {
+	flex-basis: 100%;
+}
+.plain .conv .eyebrow {
+	font: 700 15px var(--sans);
+	color: var(--ink);
+}
+.plain .conv .small {
+	font-size: 15px;
+	color: var(--muted);
+	line-height: 1.4;
+}
+.plain .conv .num {
+	font-variant-numeric: tabular-nums;
+}
+.plain .conv .tally {
+	font-size: 16px;
+}
+.plain .conv .ca {
+	color: var(--a);
+	font-weight: 700;
+}
+.plain .conv .cb {
+	color: var(--b);
+	font-weight: 700;
+}
+.plain .conv .moe {
+	font-size: 17px;
+	border-left: 5px solid var(--b);
+	padding-left: 12px;
+}
+.plain .conv .widget h2 {
+	font: 700 20px/1.25 var(--sans);
+	margin: 0;
+}
+.plain .conv .lede {
+	margin: 0;
+}

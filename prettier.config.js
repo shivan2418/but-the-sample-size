@@ -4,7 +4,8 @@ const config = {
 	singleQuote: true,
 	trailingComma: 'none',
 	printWidth: 100,
-	plugins: ['prettier-plugin-svelte'],
+	plugins: ['prettier-plugin-svelte', 'prettier-plugin-tailwindcss'],
+	tailwindStylesheet: './src/prototypes/visual-style/tw.css',
 	overrides: [{ files: '*.svelte', options: { parser: 'svelte' } }]
 };
 
