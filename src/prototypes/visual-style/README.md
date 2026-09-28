@@ -2,6 +2,8 @@
 
 Answers [Visual style and design language](https://github.com/shivan2418/but-the-sample-size/issues/16).
 
+**Verdict:** C2 · Plain compact, in Tailwind v4: a basic white look, compact, mobile first with a working desktop layout. A · Newsprint, B · Instrument and C · Plain are here for reference only. The marble widget's stacked stages and its 20-counts strip under the controls were changed in `../marble-jars/Converge.svelte` along the way (resolution on the ticket).
+
 Run `pnpm storybook` and open **Prototypes / visual-style**. Each style is a whole-page mock: masthead, the objection, the accepted marble widget (G · Converge, imported from `../marble-jars/`), a mocked city rung (dot map, resident card, poll against the real result), the later rungs as stubs, and the answer. Every style has a light, a dark and a 320px story; `theme` and `speed` are controls. The copy and mock data are shared (`content.ts`), so only the design language differs. The city numbers are placeholders.
 
 Priorities from the map owner: easy to read, and nothing that looks like AI slop (no grid-paper backgrounds, gradients, status badges, accent-bar callouts or uppercase letter-spaced labels).
