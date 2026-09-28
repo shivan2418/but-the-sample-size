@@ -18,7 +18,7 @@
 			third: { control: 'inline-radio', options: ['yellow', 'purple'] },
 			multiDisplay: { control: 'inline-radio', options: ['bars', 'markers'] }
 		},
-		args: { palette: 'redBlue', speed: 1, axisRange: 'full', third: 'yellow' }
+		args: { palette: 'redBlue', speed: 0.75, axisRange: 'full', third: 'yellow' }
 	});
 
 	const intro =
