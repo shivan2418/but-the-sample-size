@@ -2,7 +2,9 @@
 
 Answers [Wording and look of the opening objection](https://github.com/shivan2418/but-the-sample-size/issues/25).
 
-Run `pnpm storybook` and open **Prototypes / objection**. Each look has an opening story (the masthead, the objection and the start of the marble rung) and an answered story (the end of the country rung and the objection answered). The `wording` control switches between three drafts of the copy (`content.ts`), so look and wording can be judged apart. All of it is in C2 · Plain compact (`../visual-style/tw.css`).
+**Verdict:** B · Headline with wording 4 · Map owner’s pick. The objection is the page’s headline, and the reply under it is “1,200 is probably enough. Let me explain why.” The answer at the end is “1,200 is enough, if it’s random.” The other looks and wordings are here for reference only.
+
+Run `pnpm storybook` and open **Prototypes / objection**. Each look has an opening story (the masthead, the objection and the start of the marble rung) and an answered story (the end of the country rung and the objection answered). The `wording` control switches between four drafts of the copy (`content.ts`), so look and wording can be judged apart. All of it is in C2 · Plain compact (`../visual-style/tw.css`).
 
 | Look             | What it is                                                                                                                                                   |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
