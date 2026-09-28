@@ -27,6 +27,14 @@ export const wordings: Wording[] = [
 		why: 'So why are polls sometimes wrong?'
 	},
 	{
+		name: '4 · Map owner’s pick',
+		objection: '1,200 people out of 300 million? That’s 0.0004%. How can that mean anything?',
+		who: 'A comment under every poll',
+		promise: '1,200 is probably enough. Let me explain why.',
+		answer: '1,200 is enough, if it’s random.',
+		why: 'So why are polls sometimes wrong?'
+	},
+	{
 		name: '2 · Plain speech',
 		objection:
 			'They asked 1,200 people. There are 300 million of us. How is that supposed to mean anything?',

@@ -19,7 +19,7 @@
 			look: { control: 'inline-radio', options: ['quote', 'headline', 'comment', 'thread'] },
 			state: { control: 'inline-radio', options: ['opening', 'answered'] }
 		},
-		args: { wording: 0 }
+		args: { wording: 1 }
 	});
 </script>
 
