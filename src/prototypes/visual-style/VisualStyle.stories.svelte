@@ -6,6 +6,7 @@
 	import Newsprint from './Newsprint.svelte';
 	import Instrument from './Instrument.svelte';
 	import Plain from './Plain.svelte';
+	import PlainTw from './PlainTw.svelte';
 
 	const { Story } = defineMeta({
 		title: 'Prototypes/visual-style',
@@ -76,5 +77,53 @@
 >
 	{#snippet template(args)}
 		<Plain {...args} />
+	{/snippet}
+</Story>
+<Story
+	name="C2 · Plain compact (Tailwind) · Light"
+	exportName="PlainTwLight"
+	args={{ theme: 'light' }}
+>
+	{#snippet template(args)}
+		<PlainTw {...args} />
+	{/snippet}
+</Story>
+<Story
+	name="C2 · Plain compact (Tailwind) · Dark"
+	exportName="PlainTwDark"
+	args={{ theme: 'dark' }}
+>
+	{#snippet template(args)}
+		<PlainTw {...args} />
+	{/snippet}
+</Story>
+<Story
+	name="C2 · Plain compact (Tailwind) · 320px"
+	exportName="PlainTwSmall"
+	args={{ theme: 'light' }}
+	globals={{ viewport: { value: 'smallPhone', isRotated: false } }}
+>
+	{#snippet template(args)}
+		<PlainTw {...args} />
+	{/snippet}
+</Story>
+<Story
+	name="C2 · Plain compact (Tailwind) · Tablet"
+	exportName="PlainTwTablet"
+	args={{ theme: 'light' }}
+	globals={{ viewport: { value: 'tablet', isRotated: false } }}
+>
+	{#snippet template(args)}
+		<PlainTw {...args} />
+	{/snippet}
+</Story>
+<Story
+	name="C2 · Plain compact (Tailwind) · Desktop"
+	exportName="PlainTwDesktop"
+	args={{ theme: 'light' }}
+	globals={{ viewport: { value: 'desktop', isRotated: false } }}
+>
+	{#snippet template(args)}
+		<PlainTw {...args} />
 	{/snippet}
 </Story>

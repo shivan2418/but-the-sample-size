@@ -4,7 +4,11 @@
 	// (--dim, --a, --b, --grey, --ink, --surface), so each style re-skins it.
 	import { cityDots } from './content';
 
-	let { selected = 12, radius = 1.6 }: { selected?: number; radius?: number } = $props();
+	let {
+		selected = 12,
+		radius = 1.6,
+		viewBox = '0 0 100 100'
+	}: { selected?: number; radius?: number; viewBox?: string } = $props();
 
 	const dots = cityDots();
 	const polled = dots.filter((d) => d.polled);
@@ -12,7 +16,7 @@
 	const col = { a: 'var(--a)', b: 'var(--b)', none: 'var(--grey)' };
 </script>
 
-<svg viewBox="0 0 100 100" role="img" aria-label="Map of Charlotte: one dot per registered voter">
+<svg {viewBox} role="img" aria-label="Map of Charlotte: one dot per registered voter">
 	{#each dots as d, i (i)}
 		{#if !d.polled}
 			<circle cx={d.x * 100} cy={d.y * 100} r={radius * 0.6} fill="var(--dim)" />
