@@ -114,9 +114,19 @@
 	/** One marble at a time from the current stage's jar, exact (without replacement). */
 	function source(st: number, N: number, cs: Cat[]) {
 		if (st === 0) {
-			const order = shuffle(Array.from({ length: 1000 }, (_, i) => i));
-			let k = 0;
-			return { next: () => (k < 1000 ? { cat: smallJar[order[k]], m: order[k++] } : null) };
+			// the colour is a fair random draw; which marble leaves is the topmost of that colour,
+			// so the pile settles lower instead of getting holes (pile slots run bottom to top)
+			const stacks = [0, 1].map((c) =>
+				Array.from({ length: 1000 }, (_, i) => i).filter((i) => smallJar[i] === c)
+			);
+			return {
+				next: () => {
+					const left = stacks[0].length + stacks[1].length;
+					if (!left) return null;
+					const cat = Math.random() * left < stacks[0].length ? 0 : 1;
+					return { cat, m: stacks[cat].pop()! };
+				}
+			};
 		}
 		const R = cs.map((c) => Math.round(c.share * N));
 		let T = N;
@@ -155,7 +165,7 @@
 	let taken = 0;
 	const out = new Uint8Array(1000);
 	let landed: number[] = []; // category of each counted marble, in order
-	let flying: { cat: number; m: number; t0: number; dur: number }[] = [];
+	let flying: { cat: number; m: number; t0: number; dur: number; sx: number; sy: number }[] = [];
 	let counts: number[] = [0, 0];
 	let shown: number[] = [0, 0]; // eased shares for the markers and bars
 	let trail: { pct: number; t: number }[] = [];
@@ -176,9 +186,13 @@
 		items: { x: number; y: number; r: number; cat: number }[];
 		after?: () => void;
 	} = null;
+	let returningBigLeft = 0;
 	let lastSlot = (i: number): [number, number, number] => [i, 0, 1],
 		lastGroup = 1,
 		busy = $state(false);
+	let runHits: { x: number; y: number; w: number; h: number; j: number }[] = [];
+	let byHand = 0, // marbles still to take by hand
+		byHandNext = 0;
 	let raf = 0,
 		runT0 = 0,
 		runFrom = 0,
@@ -217,8 +231,11 @@
 		if (!d) return false;
 		taken++;
 		if (d.m >= 0) out[d.m] = 1;
-		if (fly) flying.push({ cat: d.cat, m: d.m, t0: now, dur: flight(taken) });
-		else land(d.cat, now);
+		if (fly) {
+			// it leaves from where it sat: its slot in the small jar, or the top of a big jar's fill
+			const [sx, sy] = d.m >= 0 ? pile.pts[d.m] : bigTop();
+			flying.push({ cat: d.cat, m: d.m, t0: now, dur: flight(taken), sx, sy });
+		} else land(d.cat, now);
 		return true;
 	}
 	function land(cat: number, now: number) {
@@ -250,6 +267,7 @@
 			items.push({ x, y, r: Math.max(1.2, rr), cat: landed[i] });
 		}
 		const keepOut = out.slice();
+		returningBigLeft = bigLeft();
 		reset();
 		out.set(keepOut); // the jar stays emptied until the marbles are back in
 		returning = { t0: performance.now(), items, after };
@@ -258,6 +276,7 @@
 	}
 	function reset() {
 		auto = false;
+		byHand = 0;
 		src = source(stage, S.N, cats);
 		taken = 0;
 		out.fill(0);
@@ -282,9 +301,11 @@
 		runFrom = taken;
 		kick();
 	}
-	function takeOne() {
+	/** By hand: one marble, or ten in quick succession. */
+	function takeSome(k: number) {
 		auto = false;
-		launch(performance.now(), true);
+		byHand += k;
+		byHandNext = Math.max(byHandNext, performance.now());
 		kick();
 	}
 	function goStage(i: number) {
@@ -297,6 +318,7 @@
 		reset();
 	}
 	function runTwenty() {
+		hover = null;
 		const n = cap();
 		runs = {
 			n,
@@ -327,26 +349,97 @@
 		return { cols: best.cols, size: Math.min(22, best.size), group };
 	}
 
-	function makeGrain(cols: string[], shares: number[]) {
+	// A big jar is drawn as BIG_DOTS packed dots, each standing for N / BIG_DOTS marbles. Dots come
+	// off the top at the true rate, so the fill drops by exactly the share taken out.
+	const BIG_DOTS = 20000;
+	const bigPts = (() => {
+		const iw = JW - 8,
+			ih = JH * 0.93 - 8,
+			d = Math.sqrt(((iw * ih) / BIG_DOTS) * (2 / Math.sqrt(3))) * 0.98,
+			pts = new Float32Array(BIG_DOTS * 2),
+			rnd = seeded(3);
+		let k = 0;
+		for (let row = 0; k < BIG_DOTS; row++) {
+			const y = JH - 4 - d / 2 - row * d * 0.866,
+				off = row % 2 ? d / 2 : 0;
+			for (let x = 4 + d / 2 + off; x <= JW - 4 - d / 2 && k < BIG_DOTS; x += d, k++) {
+				pts[k * 2] = x + (rnd() - 0.5) * d * 0.5;
+				pts[k * 2 + 1] = y + (rnd() - 0.5) * d * 0.5;
+			}
+		}
+		return { pts, d };
+	})();
+	const bigLeft = () => BIG_DOTS - Math.floor((taken * BIG_DOTS) / S.N);
+	const bigTop = (): [number, number] => {
+		const k = Math.max(0, bigLeft() - 1);
+		return [bigPts.pts[k * 2], bigPts.pts[k * 2 + 1]];
+	};
+	function drawBigJar(cols: string[], shares: number[], left: number) {
 		const c = document.createElement('canvas'),
 			m = 3;
 		c.width = JW * m;
 		c.height = JH * m;
 		const g = c.getContext('2d')!;
 		g.scale(m, m);
-		g.beginPath();
-		g.roundRect(3, JH * 0.07 + 3, JW - 6, JH * 0.93 - 6, JW * 0.08);
-		g.clip();
-		const rnd = seeded(9);
-		for (let i = 0; i < 60000; i++) {
+		const rnd = seeded(11),
+			s = bigPts.d * 0.9;
+		for (let i = 0; i < left; i++) {
 			let u = rnd(),
 				k = 0;
 			while (k < shares.length - 1 && u >= shares[k]) u -= shares[k++];
 			g.fillStyle = cols[k];
-			g.fillRect(rnd() * JW, JH * 0.07 + 6 + rnd() * JH * 0.93, 0.6, 0.6);
+			g.fillRect(bigPts.pts[i * 2] - s / 2, bigPts.pts[i * 2 + 1] - s / 2, s, s);
 		}
 		return c;
 	}
+
+	function cross(g: CanvasRenderingContext2D, x: number, y: number, col: string) {
+		g.strokeStyle = col;
+		g.lineWidth = 2;
+		g.beginPath();
+		g.moveTo(x - 3.5, y - 3.5);
+		g.lineTo(x + 3.5, y + 3.5);
+		g.moveTo(x + 3.5, y - 3.5);
+		g.lineTo(x - 3.5, y + 3.5);
+		g.stroke();
+	}
+
+	/** Hover or tap one of the 20 counts to read it. */
+	function pointAt(e: PointerEvent) {
+		if (!runs || !canvas) return (hover = null);
+		const b = canvas.getBoundingClientRect(),
+			x = e.clientX - b.left,
+			y = e.clientY - b.top;
+		// of the boxes under the pointer, the one whose centre is nearest wins
+		const hit = runHits
+			.filter((h) => x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h)
+			.sort(
+				(a, b) =>
+					Math.hypot(a.x + a.w / 2 - x, a.y + a.h / 2 - y) -
+					Math.hypot(b.x + b.w / 2 - x, b.y + b.h / 2 - y)
+			)[0];
+		if (!hit) return (hover = null);
+		const rn = runs.n,
+			r = runs.results[hit.j],
+			parts = cats.map((k, i) => {
+				const pct = (r[i] / rn) * 100,
+					off = pct - k.share * 100,
+					m = moeP(k.share, rn, S.N);
+				return { name: k.name, cnt: r[i], pct, off, miss: Math.abs(off) > m + 1e-9, m };
+			});
+		hover = { x, y: hit.y, j: hit.j, parts, n: rn };
+	}
+	type HoverPart = {
+		name: string;
+		cnt: number;
+		pct: number;
+		off: number;
+		miss: boolean;
+		m: number;
+	};
+	let hover = $state<null | { x: number; y: number; j: number; n: number; parts: HoverPart[] }>(
+		null
+	);
 
 	function marker(
 		g: CanvasRenderingContext2D,
@@ -386,6 +479,11 @@
 			for (let i = 0; i < n; i++) if (!launch(now, i >= n - 2)) break;
 			if (taken >= cap()) auto = false;
 		}
+		while (byHand > 0 && now >= byHandNext) {
+			byHand--;
+			byHandNext = now + 90 * speed;
+			if (!launch(now, true)) byHand = 0;
+		}
 		while (flying.length > 40) land(flying.shift()!.cat, now);
 		while (flying.length && now - flying[0].t0 >= flying[0].dur) land(flying.shift()!.cat, now);
 
@@ -402,7 +500,8 @@
 		const bars = multi && multiDisplay === 'bars';
 		const LINE_Y = TOP + JH + 70;
 		const runsTop = LINE_Y + (bars ? 40 : 46);
-		const runsH = runs ? (multi ? 20 * 9 + 24 : 86) : 0;
+		// the 20-count strip is always reserved, so running it doesn't push the buttons down
+		const runsH = multi ? 20 * 8 + 24 : 116;
 		const { g, w } = fit(c, runsTop + runsH);
 		let moving = false;
 
@@ -416,11 +515,13 @@
 				if (!out[m])
 					circle(g, jx + pile.pts[m][0], TOP + pile.pts[m][1], pile.r, colOf[smallJar[m]]);
 		} else {
-			const key = stage + colOf.join();
+			const left = returning ? returningBigLeft : bigLeft(),
+				key = stage + colOf.join() + left;
 			if (!grain || grainKey !== key) {
-				grain = makeGrain(
+				grain = drawBigJar(
 					colOf,
-					cats.map((k) => k.share)
+					cats.map((k) => k.share),
+					left
 				);
 				grainKey = key;
 			}
@@ -528,19 +629,34 @@
 			}
 		}
 
-		// marbles in the air: up out of the mouth, then an arc to the left
+		// marbles in the air: up from where they sat, out of the mouth, then an arc to the left
 		flying.forEach((f, j) => {
 			const p = Math.min(1, (now - f.t0) / f.dur),
 				[tx, ty, tr] = slot(Math.floor((landed.length + j) / group)),
 				mx = jx + JW / 2,
-				my = TOP - 6;
-			circle(
-				g,
-				mx + (tx - mx) * p,
-				my + (ty - my) * p * p - Math.sin(Math.PI * p) * 26,
-				pile.r + (Math.max(tr, 1.5) - pile.r) * p + 1,
-				colOf[f.cat]
-			);
+				my = TOP - 6,
+				r0 = stage === 0 ? pile.r : 1.5,
+				r = r0 + (Math.max(tr, 1.5) - r0) * p + (stage === 0 ? 1 : 0.8);
+			if (p < 0.3) {
+				// rising out of the pile to the mouth
+				const q = 1 - Math.pow(1 - p / 0.3, 2);
+				circle(
+					g,
+					jx + f.sx + (mx - jx - f.sx) * q,
+					TOP + f.sy + (my - TOP - f.sy) * q,
+					r,
+					colOf[f.cat]
+				);
+			} else {
+				const q = (p - 0.3) / 0.7;
+				circle(
+					g,
+					mx + (tx - mx) * q,
+					my + (ty - my) * q * q - Math.sin(Math.PI * q) * 26,
+					r,
+					colOf[f.cat]
+				);
+			}
 		});
 
 		// ---- the shares ----
@@ -659,14 +775,25 @@
 				acc += cats[i].share * 100;
 				g.beginPath();
 				g.moveTo(Math.round(X(acc)) + 0.5, jarY);
-				g.lineTo(Math.round(X(acc)) + 0.5, cntY + 16 + runsH);
+				g.lineTo(Math.round(X(acc)) + 0.5, cntY + 16 + (runs ? runsH : 0));
 				g.stroke();
 			}
 			g.setLineDash([]);
 		}
 
 		// ---- 20 counts at once, the misses ringed ----
-		if (runs) {
+		runHits = [];
+		if (!runs) {
+			g.fillStyle = muted;
+			g.font = '12px ' + sans;
+			g.textAlign = 'center';
+			g.textBaseline = 'middle';
+			g.fillText(
+				'“Run 20 counts” shows 20 counts here at once',
+				(x0 + x1) / 2,
+				runsTop + runsH / 2
+			);
+		} else {
 			const shownRuns = Math.min(20, Math.floor((now - runs.t0) / (110 * speed)) + 1);
 			if (shownRuns < 20) moving = true;
 			const rn = runs.n,
@@ -680,7 +807,8 @@
 			if (!multi) {
 				// each dot sits at its exact value (rounding could push one across the band's edge) and
 				// stacks on any dot it would overlap; the band runs down behind them
-				const placed: { x: number; k: number }[] = [];
+				const placed: { x: number; k: number }[] = [],
+					missDots: [number, number][] = [];
 				res.forEach((r) => {
 					const pct = (r[0] / rn) * 100,
 						miss = Math.abs(pct - cats[0].share * 100) > rm[0] + 1e-9,
@@ -688,42 +816,59 @@
 						k =
 							placed.filter((q) => Math.abs(q.x - bx) < 8).reduce((m, q) => Math.max(m, q.k), 0) +
 							1,
-						y = runsTop + runsH - 12 - (k - 1) * 9;
+						y = runsTop + runsH - 12 - (k - 1) * 10;
 					placed.push({ x: bx, k });
-					circle(g, bx, y, 3.6, miss ? ink : pin);
-					if (miss) {
-						g.strokeStyle = ink;
-						g.lineWidth = 1.5;
-						g.beginPath();
-						g.arc(bx, y, 7, 0, 7);
-						g.stroke();
-					}
+					runHits.push({ x: bx - 8, y: y - 8, w: 16, h: 16, j: res.indexOf(r) });
+					if (!miss) circle(g, bx, y, 3.4, pin, 0.7);
+					else missDots.push([bx, y]);
+				});
+				// misses go on top, so an in-range dot can never cover one
+				missDots.forEach(([bx, y]) => {
+					// a miss: solid, ringed, and flagged with a cross above the stack
+					circle(g, bx, y, 4.6, ink);
+					g.strokeStyle = ink;
+					g.lineWidth = 2;
+					g.beginPath();
+					g.arc(bx, y, 8, 0, 7);
+					g.stroke();
+					cross(g, bx, runsTop + 14, ink);
 				});
 			} else {
 				// one thin bar per count; each colour is judged on its own range, and a share that
 				// lands outside it is drawn solid and outlined
 				res.forEach((r, j) => {
-					const y = runsTop + 16 + j * 9;
+					const y = runsTop + 16 + j * 8,
+						misses = r.map(
+							(cnt, i) => Math.abs((cnt / rn) * 100 - cats[i].share * 100) > rm[i] + 1e-9
+						),
+						anyMiss = misses.some(Boolean);
+					runHits.push({ x: x0, y: y - 1, w: x1 - x0 + 14, h: 8, j });
+					// rows that got every colour right fade back; a row with a miss stays solid
 					let acc = 0;
+					g.globalAlpha = anyMiss ? 1 : 0.35;
 					r.forEach((cnt, i) => {
-						const s = (cnt / rn) * 100,
-							miss = Math.abs(s - cats[i].share * 100) > rm[i] + 1e-9;
+						const s = (cnt / rn) * 100;
 						g.fillStyle = colOf[i];
-						g.globalAlpha = miss ? 1 : 0.5;
 						g.fillRect(X(acc), y, X(acc + s) - X(acc), 6);
-						g.globalAlpha = 1;
-						if (miss) {
+						acc += s;
+					});
+					g.globalAlpha = 1;
+					acc = 0;
+					r.forEach((cnt, i) => {
+						const s = (cnt / rn) * 100;
+						if (misses[i]) {
 							g.strokeStyle = ink;
-							g.lineWidth = 1.5;
-							g.strokeRect(X(acc) - 1, y - 2, X(acc + s) - X(acc) + 2, 10);
+							g.lineWidth = 2;
+							g.strokeRect(X(acc) - 1, y - 1.5, X(acc + s) - X(acc) + 2, 9);
 						}
 						acc += s;
 					});
+					if (anyMiss) cross(g, x1 + 7, y + 3, ink);
 				});
 			}
 		}
 
-		if (auto || flying.length || moving) kick();
+		if (auto || byHand || flying.length || moving) kick();
 		else ui();
 	}
 
@@ -738,10 +883,14 @@
 		if (runs) {
 			const rn = runs.n,
 				rm = cats.map((k) => moeP(k.share, rn, S.N));
-			// every colour of every count is judged on its own 95% range
+			// in stage 3 every colour of every count is judged on its own 95% range; with two
+			// colours a miss on one is a miss on the other, so only the first is judged
+			const judged = multi ? cats.length : 1;
 			const misses = runs.results
 				.flatMap((r) =>
-					r.map((cnt, i) => Math.abs((cnt / rn) * 100 - cats[i].share * 100) > rm[i] + 1e-9)
+					r
+						.slice(0, judged)
+						.map((cnt, i) => Math.abs((cnt / rn) * 100 - cats[i].share * 100) > rm[i] + 1e-9)
 				)
 				.filter(Boolean).length;
 			const total = 20 * cats.length;
@@ -790,11 +939,31 @@
 	<div class="eyebrow">Step {stage + 1} of 3</div>
 	<h2>{S.t}</h2>
 	<p class="lede">{S.lede}</p>
-	<canvas
-		bind:this={canvas}
-		aria-label="A jar on the right, the marbles counted so far on the left, and the share of each colour so far against the true mix"
-	></canvas>
-	<div class="tally" aria-live="polite">
+	<div class="canvas-wrap">
+		<canvas
+			onpointermove={pointAt}
+			onpointerdown={pointAt}
+			onpointerleave={(e) => e.pointerType === 'mouse' && (hover = null)}
+			bind:this={canvas}
+			aria-label="A jar on the right, the marbles counted so far on the left, and the share of each colour so far against the true mix"
+		></canvas>
+		{#if hover}
+			{@const h = hover}
+			<div class="count-tip" style:left="{h.x}px" style:top="{h.y}px" role="status">
+				<b>Count {h.j + 1}</b> · {fmt(h.n)} marbles
+				{#each multi ? h.parts : h.parts.slice(0, 1) as p (p.name)}
+					<div class:missed={p.miss}>
+						{fmt(p.cnt)}
+						{p.name} = <b>{p.pct.toFixed(1)}%</b>,
+						{Math.abs(p.off).toFixed(1)} points off{p.miss
+							? ` — outside ±${fmtPts(p.m)}: missed`
+							: ''}
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</div>
+	<div class="tally tally-box" aria-live="polite">
 		{#if counted}
 			<b class="num">{fmt(counted)}</b> counted:
 			{#each cats as k, i (i)}
@@ -808,76 +977,95 @@
 		{/if}
 	</div>
 
-	<div class="row" role="group" aria-label="Sample size">
-		<label class="eyebrow" for="conv-n">Take out</label>
-		<input
-			id="conv-n"
-			type="number"
-			min="1"
-			max={S.N}
-			inputmode="numeric"
-			value={target}
-			onchange={(e) => setTarget(Number(e.currentTarget.value))}
-		/>
-		<button
-			class="info"
-			aria-expanded={tipOpen}
-			aria-label="What to expect"
-			onclick={() => (tipOpen = !tipOpen)}>i</button
-		>
-		<span class="small">= {pctOf(info.n, S.N)} of the jar</span>
-	</div>
-	<div class="row presets">
-		{#each stage === 0 ? [10, 100, 1000] : [10, 100, 1000, 10000] as p (p)}
-			<button aria-pressed={target === p} onclick={() => setTarget(p)}>{fmt(p)}</button>
-		{/each}
-	</div>
-	{#if tipOpen}
-		<div class="tip" role="note">
-			{#if info.whole}
-				{fmt(info.n)} is every marble in the jar, so your count will be exactly right, every time.
-			{:else if !multi}
-				With {fmt(info.n)} marbles, 95% of counts land within
-				<b>±{fmtPts(info.moes[0])} points</b>
-				of the true {Math.round(cats[0].share * 100)}%. That’s the shaded band on the line.
-				Pollsters call it the <strong>margin of error</strong>.
-			{:else}
-				With {fmt(info.n)} marbles, 95% of counts get each colour within:
-				{#each cats as k, i (i)}
-					<span class="nowrap"
-						><span class="chip" style:--c="var({k.col})"></span>{k.name}
-						<b>±{fmtPts(info.moes[i])}</b></span
-					>{i < cats.length - 1 ? ', ' : '.'}
-				{/each}
-				Smaller shares wobble less in points.
-			{/if}
+	<div class="size">
+		<div class="row nowrap-row" role="group" aria-label="Sample size">
+			<label class="eyebrow" for="conv-n">Sample size</label>
+			<input
+				id="conv-n"
+				type="number"
+				min="1"
+				max={S.N}
+				inputmode="numeric"
+				value={target}
+				onchange={(e) => setTarget(Number(e.currentTarget.value))}
+			/>
+			<button
+				class="info"
+				aria-expanded={tipOpen}
+				aria-label="What to expect"
+				onclick={() => (tipOpen = !tipOpen)}>i</button
+			>
 		</div>
-	{/if}
+		{#if tipOpen}
+			<!-- floats over the page, so opening it moves nothing -->
+			<div class="tip" role="note">
+				<button class="tip-x" aria-label="Close" onclick={() => (tipOpen = false)}>×</button>
+				{#if info.whole}
+					{fmt(info.n)} is every marble in the jar, so your count will be exactly right, every time.
+				{:else if !multi}
+					With {fmt(info.n)} marbles, 95% of counts land within
+					<b>±{fmtPts(info.moes[0])} points</b>
+					of the true {Math.round(cats[0].share * 100)}%. That’s the shaded band on the line.
+					Pollsters call it the <strong>margin of error</strong>.
+				{:else}
+					With {fmt(info.n)} marbles, 95% of counts get each colour within:
+					{#each cats as k, i (i)}
+						<span class="nowrap"
+							><span class="chip" style:--c="var({k.col})"></span>{k.name}
+							<b>±{fmtPts(info.moes[i])}</b></span
+						>{i < cats.length - 1 ? ', ' : '.'}
+					{/each}
+					Smaller shares wobble less in points.
+				{/if}
+			</div>
+		{/if}
+		<div class="row presets">
+			{#each stage === 0 ? [10, 100, 1000] : [10, 100, 1000, 10000] as p (p)}
+				<button aria-pressed={target === p} onclick={() => setTarget(p)}>{fmt(p)}</button>
+			{/each}
+		</div>
+		<div class="small">That’s {pctOf(info.n, S.N)} of the jar.</div>
+	</div>
 
-	<div class="row">
-		<button class="primary" onclick={toggleAuto} disabled={busy}>
-			{auto ? 'Pause' : counted >= info.n ? 'Again' : counted ? 'Keep going' : 'Start'}
-		</button>
-		<button onclick={takeOne} disabled={auto || counted >= S.N}>Take one out</button>
-		<button onclick={() => putBack()} disabled={busy || (!counted && !auto)}>Put them back</button>
-	</div>
-	<div class="row">
-		<button onclick={runTwenty}>Run 20 counts of {fmt(info.n)}</button>
-	</div>
-	{#if info.runText}
-		<div class="moe">{info.runText}</div>
-	{:else if counted >= S.N}
-		<div class="moe">You counted every marble, so your count is exactly right.</div>
-	{:else if counted >= info.n && counted >= 10}
-		<div class="moe">
-			After {fmt(counted)} marbles ({pctOf(counted, S.N)} of the jar),
-			{#if multi}
-				every colour is within <b>{Math.max(...info.off).toFixed(1)} points</b> of the truth.
-			{:else}
-				your count is <b>{info.off[0].toFixed(1)} points</b> from the truth.
-			{/if}
+	<!-- fixed cells: labels can change (Start, Pause, Again) without moving anything -->
+	<div class="controls">
+		<div class="group">
+			<span class="eyebrow">Count for me</span>
+			<button class="primary wide" onclick={toggleAuto} disabled={busy}>
+				{auto ? 'Pause' : counted >= info.n ? 'Again' : counted ? 'Keep going' : 'Start'}
+			</button>
 		</div>
-	{/if}
+		<div class="group">
+			<span class="eyebrow">By hand</span>
+			<div class="pair">
+				<button onclick={() => takeSome(1)} disabled={auto || busy || counted >= S.N}>Take 1</button
+				>
+				<button onclick={() => takeSome(10)} disabled={auto || busy || counted >= S.N}
+					>Take 10</button
+				>
+			</div>
+		</div>
+		<button class="wide" onclick={() => putBack()} disabled={busy || (!counted && !auto)}
+			>Put them back</button
+		>
+		<button class="wide" onclick={runTwenty}>Run 20 counts</button>
+	</div>
+	<div class="message">
+		{#if info.runText}
+			<div class="moe">{info.runText}</div>
+		{:else if counted >= S.N}
+			<div class="moe">You counted every marble, so your count is exactly right.</div>
+		{:else if counted >= info.n && counted >= 10}
+			<div class="moe">
+				After {fmt(counted)} marbles ({pctOf(counted, S.N)} of the jar),
+				{#if multi}
+					every colour is within <b>{Math.max(...info.off).toFixed(1)} points</b> of the truth.
+				{:else}
+					your count is <b>{info.off[0].toFixed(1)} points</b> from the truth.
+				{/if}
+			</div>
+		{/if}
+	</div>
 	<div class="stepnav">
 		<button disabled={stage === 0} onclick={() => goStage(stage - 1)}>Back</button>
 		<button class="primary" disabled={stage === 2} onclick={() => goStage(stage + 1)}
@@ -918,8 +1106,89 @@
 		justify-content: space-between;
 		gap: 8px;
 	}
-	.presets {
-		margin-top: -4px;
+	.size {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+	.nowrap-row {
+		flex-wrap: nowrap;
+	}
+	.tally-box {
+		min-height: 4.3em !important;
+	}
+	.canvas-wrap {
+		position: relative;
+	}
+	.count-tip {
+		position: absolute;
+		transform: translate(-50%, calc(-100% - 8px));
+		max-width: 260px;
+		width: max-content;
+		background: var(--ink);
+		color: var(--surface);
+		border-radius: 8px;
+		padding: 7px 10px;
+		font-size: 13px;
+		line-height: 1.4;
+		pointer-events: none;
+		z-index: 3;
+		box-shadow: 0 6px 20px rgb(0 0 0 / 0.25);
+	}
+	.count-tip .missed {
+		font-weight: 600;
+		text-decoration: underline;
+	}
+	.tip {
+		position: absolute;
+		top: 44px;
+		left: 0;
+		right: 0;
+		z-index: 2;
+		box-shadow: 0 6px 20px rgb(0 0 0 / 0.25);
+		padding-right: 34px;
+	}
+	.tip-x {
+		position: absolute;
+		top: 4px;
+		right: 4px;
+		width: 28px;
+		height: 28px;
+		padding: 0;
+		background: transparent;
+		border: 0;
+		color: var(--surface);
+		font-size: 18px;
+	}
+	.controls {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 10px;
+		align-items: end;
+	}
+	.group {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		min-width: 0;
+	}
+	.wide {
+		width: 100%;
+	}
+	.pair {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+	}
+	.pair button:first-child {
+		border-radius: 999px 0 0 999px;
+		border-right-width: 0;
+	}
+	.pair button:last-child {
+		border-radius: 0 999px 999px 0;
+	}
+	.message {
+		min-height: 6em;
 	}
 	.info {
 		width: 30px;
