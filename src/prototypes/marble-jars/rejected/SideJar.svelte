@@ -27,7 +27,7 @@
 		trueLine,
 		within,
 		type PaletteKey
-	} from './model';
+	} from '../model';
 
 	let {
 		startStep = 0,

@@ -22,7 +22,7 @@
 		seeded,
 		tok,
 		type PaletteKey
-	} from './model';
+	} from '../model';
 
 	let {
 		speed = 1,
