@@ -20,5 +20,5 @@ The state rung simulates North Carolina, not Michigan (the earlier choice). Each
 - Phone numbers, birth dates and voter IDs are never published, and voters the state marks as confidential are left out.
 - Residents are built from the voter-file snapshot of election day (Nov 2024), not the current file, so party, precinct and turnout line up with the 2024 result.
 - The ~4M NC residents not on the voter file must be synthesized and placed at addresses from another source.
-- The Michigan work (vote-choice rates, block-addresses as the address source) must be redone for NC. The blockdb layout and per-poll cost should carry over, since the population is the same size.
+- The Michigan work (vote-choice rates, block-addresses as the address source) must be redone for NC. The zonemapdb (then called blockdb) layout and per-poll cost should carry over, since the population is the same size.
 - Some legal claims (NC has no ban on publishing online) rest on search excerpts because government sites were blocked during research; re-check them before building.
