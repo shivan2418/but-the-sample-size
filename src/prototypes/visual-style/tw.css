@@ -110,7 +110,7 @@
 }
 .plain .conv input[type='number'] {
 	font: 600 17px var(--mono);
-	width: 9ch;
+	width: 7ch;
 	padding: 4px 8px;
 	border: 2px solid var(--ink);
 	background: var(--bg);
@@ -129,8 +129,9 @@
 	align-items: center;
 	gap: 8px 12px;
 }
-.plain .conv .size > .small {
-	flex-basis: 100%;
+.plain .conv .size .presets button {
+	padding: 6px 10px;
+	min-width: 0;
 }
 .plain .conv .eyebrow {
 	font: 700 15px var(--sans);
@@ -166,4 +167,12 @@
 }
 .plain .conv .lede {
 	margin: 0;
+}
+/* hold less empty space: the tally needs two lines for two colours, and the closing message sits
+   below the controls, so it can take its own height */
+.plain .conv .widget:not(.multi) .tally-box {
+	min-height: 2.9em !important;
+}
+.plain .conv .message {
+	min-height: 0;
 }

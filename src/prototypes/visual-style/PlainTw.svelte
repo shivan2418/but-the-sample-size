@@ -11,6 +11,15 @@
 	let { theme = 'light', speed = 0.75 }: { theme?: 'light' | 'dark'; speed?: number } = $props();
 	const pct = (n: number) => `${Math.round(n)}%`;
 
+	// The marble stages stack down the page. Back / Next step glide to the neighbouring stage (or
+	// on to the city rung after the last), and jump instead for readers who ask for less motion.
+	const stageIds = ['t-marbles-1', 't-marbles-2', 't-marbles-3'];
+	function glide(from: number, dir: -1 | 1) {
+		const id = stageIds[from + dir] ?? 't-town';
+		const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+		document.getElementById(id)?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' });
+	}
+
 	const btn =
 		'min-h-11 cursor-pointer bg-glass px-3 py-1.5 text-base font-semibold text-ink shadow-[0_2px_0_var(--line)]';
 	const btnGo =
@@ -69,11 +78,18 @@
 			<section id="t-marbles" class={section}>
 				{@render heading(2, c.marbles.title)}
 				<p class="mb-3">{c.marbles.intro}</p>
-				<div class="conv mb-3">
-					{#key theme}
-						<Converge {speed} startTarget={100} />
-					{/key}
-				</div>
+				{#each stageIds as id, i (id)}
+					<div {id} class="conv scroll-mt-4 {i ? 'mt-5 border-t border-dim pt-5' : ''} mb-3">
+						{#key theme}
+							<Converge
+								{speed}
+								startStage={i}
+								startTarget={i ? 1000 : 100}
+								onStep={(dir) => glide(i, dir)}
+							/>
+						{/key}
+					</div>
+				{/each}
 				<p class="mb-2">{c.marbles.outro}</p>
 				<a class="{link} text-base" href="#t-town">Skip to step 3</a>
 			</section>
