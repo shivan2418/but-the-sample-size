@@ -28,6 +28,10 @@ _Avoid_: Affiliation, vote, preference
 One random sample of residents together with its tally of their vote choices.
 _Avoid_: Survey, sample run
 
+**Sample size**:
+How many answers a poll counts: marbles in the marble jars, and voters on every rung with people. Where the population includes people who didn't vote, a poll keeps asking until that many voters have answered, and the non-voters it meets are asked but not counted.
+_Avoid_: N (in reader-facing text), respondents, people asked
+
 **True split**:
 The population's actual breakdown on a question, which the simulation can reveal and a real poll never can.
 _Avoid_: Ground truth, population parameter (and not the same as the real result, which is what happened in the real election)
