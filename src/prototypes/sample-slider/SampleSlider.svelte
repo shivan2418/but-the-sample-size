@@ -3,7 +3,8 @@
 	// target (the thumb) anywhere from what's already counted up to the whole jar, then presses
 	// Sample, and marbles come out until the count reaches the target. A second marker under the
 	// track shows how many are counted so far. Presets set the target; one below the count is
-	// disabled, since marbles can't go back in by moving the target.
+	// disabled, since marbles can't go back in by moving the target. The jar stands to the right.
+	import Jar from './Jar.svelte';
 
 	let {
 		jar = 1000,
@@ -49,20 +50,33 @@
 		target = Math.max(counted, Math.min(jar, v));
 	}
 
-	// ---- drawing marbles, without replacement ----
+	// ---- the jar: every marble, shuffled; the first `jar - counted` are still in it ----
+	function fill() {
+		const c = new Uint8Array(jar);
+		c.fill(1, 0, Math.round(jar * share));
+		for (let i = jar - 1; i > 0; i--) {
+			const j = Math.floor(Math.random() * (i + 1));
+			[c[i], c[j]] = [c[j], c[i]];
+		}
+		return c;
+	}
+	let colors = $state.raw(fill());
+	let version = $state(0);
+
+	// Take k marbles at random, without replacement: each comes out of a random place in the jar,
+	// and the marble on top drops into the gap.
 	function take(k: number) {
-		let R = Math.round(jar * share) - red;
 		let left = jar - counted;
 		let got = 0;
 		for (let i = 0; i < k && left > 0; i++) {
-			if (Math.random() * left < R) {
-				got++;
-				R--;
-			}
+			const j = Math.floor(Math.random() * left);
+			got += colors[j];
+			colors[j] = colors[left - 1];
 			left--;
 		}
 		red += got;
-		counted += k;
+		counted = jar - left;
+		version++;
 	}
 
 	// Sample until the count reaches the target: at least 12 marbles a second, so a small target
@@ -108,6 +122,8 @@
 		counted = 0;
 		red = 0;
 		target = 0;
+		colors = fill();
+		version++;
 	}
 
 	$effect(() => () => cancelAnimationFrame(raf));
@@ -125,86 +141,91 @@
 </script>
 
 <div class="flex flex-col gap-3">
-	<div class="flex flex-col gap-1">
-		<label for="target" class="font-bold">How many marbles to take</label>
+	<div class="flex items-start gap-4">
+		<div class="flex min-w-0 flex-1 flex-col gap-3">
+			<div class="flex flex-col gap-1">
+				<label for="target" class="font-bold">How many marbles to take</label>
 
-		<!-- the track: the native range input sits on top for dragging and the keyboard; the fills,
+				<!-- the track: the native range input sits on top for dragging and the keyboard; the fills,
 		     the counted marker and the labels are drawn under it -->
-		<div class="track relative h-[76px]" style:--t={tPos} style:--c={cPos}>
-			<span
-				class="pointer-events-none absolute top-0 text-[15px]/none font-bold whitespace-nowrap tabular-nums"
-				style:left="calc(var(--t) * (100% - 20px) + 10px)"
-				style:translate="{anchor(tPos)} 0">Target {fmt(target)}</span
-			>
-			<div class="absolute inset-x-[10px] top-[31px] h-2.5 bg-dim">
-				<!-- counted so far -->
-				<div class="absolute inset-y-0 left-0 bg-ink" style:width="calc(var(--c) * 100%)"></div>
-				<!-- still to take -->
-				<div
-					class="absolute inset-y-0 bg-line"
-					style:left="calc(var(--c) * 100%)"
-					style:width="calc((var(--t) - var(--c)) * 100%)"
-				></div>
-			</div>
-			<!-- the counted marker, under the track -->
-			<div
-				class="pointer-events-none absolute top-[44px] flex flex-col items-center"
-				style:left="calc(var(--c) * (100% - 20px) + 10px)"
-				style:translate="-50% 0"
-			>
-				<span class="h-0 w-0 border-x-[6px] border-b-[8px] border-x-transparent border-b-ink"
-				></span>
-			</div>
-			<span
-				class="pointer-events-none absolute top-[56px] text-[15px]/none whitespace-nowrap text-muted tabular-nums"
-				style:left="calc(var(--c) * (100% - 20px) + 10px)"
-				style:translate="{anchor(cPos)} 0">Counted {fmt(counted)}</span
-			>
-			<input
-				id="target"
-				type="range"
-				min="0"
-				max={STEPS}
-				step="1"
-				value={Math.round(tPos * STEPS)}
-				oninput={(e) => {
-					setTarget(fromStep(Number(e.currentTarget.value)));
-					e.currentTarget.value = String(Math.round(toPos(target) * STEPS));
-				}}
-				aria-valuetext="Target {fmt(target)} marbles, {fmt(counted)} counted"
-				class="absolute inset-x-0 top-[20px] h-8 w-full cursor-pointer appearance-none bg-transparent"
-			/>
-		</div>
-		{#if scale === 'log'}
-			<div class="relative mx-[10px] h-4 text-[12px]/none text-muted" aria-hidden="true">
-				{#each ticks.filter((t) => t <= jar) as t (t)}
+				<div class="track relative h-[76px]" style:--t={tPos} style:--c={cPos}>
 					<span
-						class="absolute font-mono"
-						style:left="{toPos(t) * 100}%"
-						style:translate={t === 0 ? '0' : t === jar ? '-100% 0' : '-50% 0'}
-						>{t >= 1e6 ? t / 1e6 + 'M' : t >= 1000 ? t / 1000 + 'k' : t}</span
+						class="pointer-events-none absolute top-0 text-[15px]/none font-bold whitespace-nowrap tabular-nums"
+						style:left="calc(var(--t) * (100% - 20px) + 10px)"
+						style:translate="{anchor(tPos)} 0">Target {fmt(target)}</span
+					>
+					<div class="absolute inset-x-[10px] top-[31px] h-2.5 bg-dim">
+						<!-- counted so far -->
+						<div class="absolute inset-y-0 left-0 bg-ink" style:width="calc(var(--c) * 100%)"></div>
+						<!-- still to take -->
+						<div
+							class="absolute inset-y-0 bg-line"
+							style:left="calc(var(--c) * 100%)"
+							style:width="calc((var(--t) - var(--c)) * 100%)"
+						></div>
+					</div>
+					<!-- the counted marker, under the track -->
+					<div
+						class="pointer-events-none absolute top-[44px] flex flex-col items-center"
+						style:left="calc(var(--c) * (100% - 20px) + 10px)"
+						style:translate="-50% 0"
+					>
+						<span class="h-0 w-0 border-x-[6px] border-b-[8px] border-x-transparent border-b-ink"
+						></span>
+					</div>
+					<span
+						class="pointer-events-none absolute top-[56px] text-[15px]/none whitespace-nowrap text-muted tabular-nums"
+						style:left="calc(var(--c) * (100% - 20px) + 10px)"
+						style:translate="{anchor(cPos)} 0">Counted {fmt(counted)}</span
+					>
+					<input
+						id="target"
+						type="range"
+						min="0"
+						max={STEPS}
+						step="1"
+						value={Math.round(tPos * STEPS)}
+						oninput={(e) => {
+							setTarget(fromStep(Number(e.currentTarget.value)));
+							e.currentTarget.value = String(Math.round(toPos(target) * STEPS));
+						}}
+						aria-valuetext="Target {fmt(target)} marbles, {fmt(counted)} counted"
+						class="absolute inset-x-0 top-[20px] h-8 w-full cursor-pointer appearance-none bg-transparent"
+					/>
+				</div>
+				{#if scale === 'log'}
+					<div class="relative mx-[10px] h-4 text-[12px]/none text-muted" aria-hidden="true">
+						{#each ticks.filter((t) => t <= jar) as t (t)}
+							<span
+								class="absolute font-mono"
+								style:left="{toPos(t) * 100}%"
+								style:translate={t === 0 ? '0' : t === jar ? '-100% 0' : '-50% 0'}
+								>{t >= 1e6 ? t / 1e6 + 'M' : t >= 1000 ? t / 1000 + 'k' : t}</span
+							>
+						{/each}
+					</div>
+				{:else}
+					<div
+						class="mx-[10px] flex justify-between font-mono text-[12px] text-muted"
+						aria-hidden="true"
+					>
+						<span>0</span><span>{fmt(jar)}</span>
+					</div>
+				{/if}
+			</div>
+
+			<div class="flex flex-wrap gap-1.5" role="group" aria-label="Set the target">
+				{#each shown as p (p)}
+					<button
+						class="min-h-11 cursor-pointer bg-glass px-3 font-semibold tabular-nums shadow-[0_2px_0_var(--line)] disabled:cursor-default disabled:opacity-40 aria-pressed:bg-ink aria-pressed:text-bg aria-pressed:shadow-none"
+						aria-pressed={target === p}
+						disabled={counted > p}
+						onclick={() => setTarget(p)}>{fmt(p)}</button
 					>
 				{/each}
 			</div>
-		{:else}
-			<div
-				class="mx-[10px] flex justify-between font-mono text-[12px] text-muted"
-				aria-hidden="true"
-			>
-				<span>0</span><span>{fmt(jar)}</span>
-			</div>
-		{/if}
-	</div>
-
-	<div class="flex flex-wrap gap-1.5" role="group" aria-label="Set the target">
-		{#each shown as p (p)}
-			<button
-				class="min-h-11 cursor-pointer bg-glass px-3 font-semibold tabular-nums shadow-[0_2px_0_var(--line)] disabled:cursor-default disabled:opacity-40 aria-pressed:bg-ink aria-pressed:text-bg aria-pressed:shadow-none"
-				aria-pressed={target === p}
-				disabled={counted > p}
-				onclick={() => setTarget(p)}>{fmt(p)}</button
-			>
-		{/each}
+		</div>
+		<Jar {colors} left={jar - counted} {version} />
 	</div>
 
 	<div class="flex flex-wrap gap-2.5">
