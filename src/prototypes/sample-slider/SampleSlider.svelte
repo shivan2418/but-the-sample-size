@@ -95,6 +95,13 @@
 		raf = requestAnimationFrame(frame);
 	}
 
+	// One marble, straight away: the count goes up by one, and the target with it when they meet.
+	function takeOne() {
+		if (running || counted >= jar) return;
+		take(1);
+		target = Math.max(target, counted);
+	}
+
 	function putBack() {
 		cancelAnimationFrame(raf);
 		running = false;
@@ -205,6 +212,11 @@
 			class="min-h-11 min-w-[9rem] cursor-pointer bg-go px-4 font-semibold text-white shadow-[0_2px_0_var(--go-edge)] disabled:cursor-default disabled:opacity-45"
 			disabled={!running && counted >= target}
 			onclick={run}>{running ? 'Pause' : counted ? 'Keep sampling' : 'Sample'}</button
+		>
+		<button
+			class="min-h-11 cursor-pointer bg-glass px-3 font-semibold shadow-[0_2px_0_var(--line)] disabled:cursor-default disabled:opacity-45"
+			disabled={running || counted >= jar}
+			onclick={takeOne}>Take 1</button
 		>
 		<button
 			class="min-h-11 cursor-pointer bg-glass px-3 font-semibold shadow-[0_2px_0_var(--line)] disabled:cursor-default disabled:opacity-45"

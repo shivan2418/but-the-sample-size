@@ -6,6 +6,7 @@ Run `pnpm storybook` and open **Prototypes / sample-slider**.
 
 - **One slider, two markers.** The thumb is the target, from what's already counted up to the whole jar. A marker under the track shows how many are counted. The track is filled solid up to the count and lighter from there to the target.
 - **Sample** takes marbles out until the count reaches the target (Pause while it runs, Keep sampling after). It goes at least 12 a second, so small targets can be watched one by one; big ones take about a second and a half.
+- **Take 1** takes one marble at once, without pressing Sample. When the count reaches the target, the target moves up with it.
 - **Presets** set the target only. One below the count is disabled: you can't put marbles back by moving the target. **Put them back** resets everything.
 - The target can't be dragged below the count.
 
